@@ -40,3 +40,9 @@
 - `torch` is not installed in the project venv and installing it (≈2 GB CUDA wheel) risks heavy RAM/network cost for unclear marginal benefit. Lexical LGBM + char-ngram TF-IDF linear + their stack cover the spec's model families.
 - The CNN remains optional future work; if it is ever added it must follow the same grouped protocol. Logged in `results/model_metrics_v2.json` as `optional_char_cnn`.
 
+
+## D10 — Stale holdout artifact archived
+- `results/final_holdout.json` from the abandoned first-attempt pipeline (commit b2b9155, old corpus, different schema — `metrics` was a list) was renamed to `results/final_holdout_v0_stale.json`. The holdout-touched-once guard would otherwise have silently reused metrics produced by the old, leakage-affected corpus for the new bundle. The current bundle's holdout is evaluated exactly once by `scripts/evaluate_v2.py` into a fresh `results/final_holdout.json`.
+
+## D11 — PhreshPhish benchmark sets are sealed, evaluation-only
+- Benchmark hash lists (sha256 of the raw URL string, ~26.4k hashes each for base rates 005/010/050/100/500) are matched against local test rows as strings only (~56% match on a 5k sample of test URLs). They are published per-benchmark in the evaluation JSON if time permits; they never feed training or threshold selection.
