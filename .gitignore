@@ -16,6 +16,8 @@ data/external/
 data/processed/*.parquet
 *.csv
 !tests/sanity_urls.csv
+!tests/live_probe_urls.csv
+!data/raw/demo.csv
 logs/
 .next/
 node_modules/

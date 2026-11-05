@@ -33,11 +33,20 @@ def load_bundle():
 
 
 def score_batch(b, urls):
+    """Calibrated probabilities — the SAME functional form the API predictor uses
+    (canonical -> featurize -> blend -> Platt). v2.0 evaluation applied bundle thresholds
+    to raw blend scores, which is a different operating point (results/serve_eval_parity.json
+    proves the skew: same URL, API phishing vs eval legitimate)."""
     X = featurize(list(urls))
     p_lgbm = b["lgbm"].predict_proba(X)[:, 1]
     p_lin = b["lr"].predict_proba(b["tfidf"].transform([u.lower() for u in urls]))[:, 1]
     w = float(b.get("w_text", 0.5))
-    return w * p_lin + (1 - w) * p_lgbm
+    raw = w * p_lin + (1 - w) * p_lgbm
+    cal = b.get("calibration") or {"a": 1.0, "b": 0.0}
+    a = float(cal.get("a", 1.0)); bb = float(cal.get("b", 0.0))
+    raw = np.clip(raw, 1e-6, 1 - 1e-6)
+    z = np.log(raw / (1 - raw))
+    return 1 / (1 + np.exp(-(a * z + bb)))
 
 
 def recall_at_fpr(y, p, target):
@@ -147,7 +156,9 @@ def main():
         if len(sub) == 0:
             continue
         t0 = time.time()
-        fp = hashlib.sha256(json.dumps({k: str(b.get(k)) for k in ["thresholds", "w_text"]}).encode()).hexdigest()[:16]
+        fp = hashlib.sha256(json.dumps({k: str(b.get(k)) for k in
+                                        ["thresholds", "w_text", "calibration", "version"]}
+                                       + ["__calibrated_scores_v2__"]).encode()).hexdigest()[:16]
         cache_p = Path(f"results/slice_{s}_probs_{fp}.npy")
         if cache_p.exists():
             p = np.load(cache_p)
@@ -169,7 +180,9 @@ def main():
     else:
         h = D[D.split_role == "holdout"].copy()
         t0 = time.time()
-        fp = hashlib.sha256(json.dumps({k: str(b.get(k)) for k in ["thresholds", "w_text"]}).encode()).hexdigest()[:16]
+        fp = hashlib.sha256(json.dumps({k: str(b.get(k)) for k in
+                                        ["thresholds", "w_text", "calibration", "version"]}
+                                       + ["__calibrated_scores_v2__"]).encode()).hexdigest()[:16]
         cache_p = Path(f"results/slice_holdout_probs_{fp}.npy")
         h["p"] = np.load(cache_p) if cache_p.exists() else score_batch(b, h.url_canonical.tolist())
         if not cache_p.exists():

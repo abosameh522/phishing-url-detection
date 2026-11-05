@@ -60,3 +60,12 @@ Path('data/ARTIFACT_AUDIT.md').write_text('# Artifact audit\n\nThe classifier be
 Path('data/spot_check.csv').write_text(D.sample(min(300,len(D)),random_state=42)[['source','label','url_raw']].to_csv(index=False))
 Path('results/artifact_audit.json').write_text(json.dumps({'pooled_auc_before':auc_before,'pooled_auc_after':auc_after,'per_source_auc':per_source,'common_strata':len(common),'weight_min':float(D.sample_weight.min()),'weight_max':float(D.sample_weight.max())},indent=2))
 print(json.dumps({'auc_before':auc_before,'auc_after':auc_after,'per_source_auc':per_source,'common_strata':len(common),'weights':[float(x) for x in np.quantile(D.sample_weight,[0,.5,.95,1])]},indent=2))
+
+# ---------- machine-readable summary for gates.py ----------
+Path('data/artifact_audit.json').write_text(json.dumps({
+    'pooled_surface_auc_before': float(auc_before),
+    'pooled_surface_auc_after': (float(auc_after) if auc_after is not None else None),
+    'surface_band_target': [0.45, 0.60],
+    'in_band': bool(auc_after is not None and 0.45 <= float(auc_after) <= 0.60),
+    'per_source': per_source,
+}, indent=2))

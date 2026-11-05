@@ -294,7 +294,7 @@ def main():
               "lgbm": lgbm_final, "lr": lr_final, "tfidf": tfidf,
               "w_text": w_text, "calibration": {"a": a, "b": b},
               "thresholds": thresholds,
-              "version": "2.1.0", "feature_names": feature_names()}
+              "version": "3.0.0", "feature_names": feature_names()}
     joblib.dump(bundle, "results/model_bundle.joblib", compress=3)
 
     metrics = {"protocol": "StratifiedGroupKFold(5, seed 42, by registrable domain) on train_dev; "

@@ -32,13 +32,33 @@ def featurize_one(u):
 
 def featurize(urls): return np.vstack([featurize_one(x) for x in urls]).astype(np.float32)
 
-def reasons(u):
-    c,p,h,ex,r=_parts(u); text=(c).lower(); out=[]
+def reasons(u, model=None):
+    """Deduce human-readable drivers of the score.
+
+    Without a model: keyword/surface heuristics (legacy). With the stack bundle: include
+    the top POSITIVE char-3/5 n-grams from the linear half (coef * tf-idf value) and note
+    the inter-model agreement, so a phishing verdict always names what pushed it.
+    """
+    c, p, h, ex, r = _parts(u); text = (c).lower(); out = []
     if any(k in text for k in SUSPICIOUS): out.append("contains a credential or urgency keyword")
     if any(b in text and b != ex.domain.lower() for b in BRANDS): out.append("brand name appears outside its registrable domain")
-    try: ipaddress.ip_address(h); out.append("uses a numeric IP host")
+    try:
+        ipaddress.ip_address(h); out.append("uses a numeric IP host")
     except ValueError: pass
     if 'xn--' in h: out.append("uses punycode in the host")
-    if h.count('-')>=2: out.append("host has unusually many hyphens")
-    if len(c)>120: out.append("unusually long URL")
-    return out[:5] or ["no strong lexical warning signal"]
+    if h.count('-') >= 2: out.append("host has unusually many hyphens")
+    if len(c) > 120: out.append("unusually long URL")
+    if model is not None:
+        try:
+            X = model["tfidf"].transform([c.lower()])
+            names = model["tfidf"].get_feature_names_out()
+            coeff = model["lr"].coef_[0]
+            contributions = coeff * X.toarray()[0]
+            order = np.argsort(contributions)[::-1]
+            top = [(str(names[i]), float(contributions[i])) for i in order
+                   if contributions[i] > 0][:3]
+            for gram, val in top:
+                out.append(f"character pattern {gram!r} resembles known phishing URLs (contribution {val:.2f})")
+        except Exception:
+            pass
+    return out[:5]

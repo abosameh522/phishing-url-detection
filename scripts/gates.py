@@ -1,4 +1,4 @@
-"""Gates G1-G5 + overall result. Every number is read from generated artifacts.
+"""Gates G1-G6 + surface-cue check + overall result. Every number is read from generated artifacts.
 
 G1 sanity (easy fixtures):     legitimate_accuracy >= .95 and phishing_accuracy >= .85
 G2 format invariance:          canonicalize() collapses scheme/www/port/slash variants
@@ -7,9 +7,12 @@ G3 real-world:                 eval_tranco flagged share <= 2% at balanced thres
 G4 no leakage:                 no registrable-domain overlap between any training role and
                                any evaluation role in the unified parquet
 G5 reproducibility:            model metrics + evaluation JSONs exist and carry a commit hash
+G6 live probe (v3):            >= 95% of frozen tests/live_probe_urls.csv legitimate rows
+                               classified legitimate at balanced, through the API code path
+S (informational):             pooled surface-cue AUC after reweight in 0.45-0.60
 """
 from pathlib import Path
-import json, re, sys
+import json, re, sys, csv
 import pandas as pd
 
 sys.path.insert(0, "src")
@@ -99,6 +102,54 @@ ok_ho = not Path("results/final_holdout.json").exists() or "commit" in json.load
 report["G5"] = {"metrics_json": ok_v2, "holdout_json": ok_ho}
 G5 = ok_v2 and ok_ho
 
-report["all_passed"] = bool(G1 and G2 and G3 and G4 and G5)
+# ---- G6 live probe (API code path, frozen fixture set) ----------------------
+probe_report = {}
+probe_path = Path("tests/live_probe_urls.csv")
+if model_ok and probe_path.exists():
+    try:
+        p6 = load()
+        probe_rows = list(csv.DictReader(open(probe_path)))
+        from collections import Counter
+        outcomes = {lab: Counter() for lab in ("legitimate", "phishing")}
+        for r in probe_rows:
+            out = p6.predict(r["url"], mode="balanced")
+            outcomes[r["label"]][
+                "correct" if out["class"] == r["label"] else "wrong"] += 1
+            if r["label"] == "legitimate" and out["class"] == r["label"]:
+                continue
+            if r["label"] == "legitimate":
+                probe_report.setdefault("legit_misses", []).append(
+                    {"url": r["url"], "probability": out["probability"], "class": out["class"]})
+        legit_acc = outcomes["legitimate"]["correct"] / sum(outcomes["legitimate"].values())
+        phish_rec = outcomes["phishing"]["correct"] / sum(outcomes["phishing"].values())
+        # probe phishing recall is informational ONLY (30 strings is not a skill estimate)
+        report["G6"] = {
+            "probe_legit_accuracy": legit_acc,
+            "probe_legit_pass": legit_acc >= 0.95,
+            "probe_phishing_recall_informational": phish_rec,
+            "legit_misses": probe_report.get("legit_misses", []),
+            "note": "probe URLs never used in training/tuning; scored through URLModel.predict",
+        }
+        G6 = legit_acc >= 0.95
+    except Exception as e:
+        report["G6"] = {"error": str(e)}; missing_note = e
+        G6 = False
+else:
+    G6 = False; report["G6"] = "model bundle or probe CSV missing"
+
+# ---- S surface-cue band (non-G informational gate from artifact audit) ------
+audit_p = Path("data/artifact_audit.json")
+if audit_p.exists():
+    au = json.loads(audit_p.read_text())
+    report["S_surface_cue"] = {
+        "pooled_auc_after_reweight": au.get("pooled_surface_auc_after"),
+        "band_target": au.get("surface_band_target", [0.45, 0.60]),
+        "in_band": au.get("in_band"),
+        "note": "target 0.45-0.60; far below 0.5 is also a failure (inverted cue)",
+    }
+else:
+    report["S_surface_cue"] = "audit JSON missing"
+
+report["all_passed"] = bool(G1 and G2 and G3 and G4 and G5 and G6)
 Path("results/gates.json").write_text(json.dumps(report, indent=2))
 print(json.dumps(report, indent=2))

@@ -150,19 +150,69 @@ if lp.exists():
                 "2021", license_str="Mendeley public data; verify licence metadata")
     source_counts["LegitPhish"] = len(seen)
 
-# ---------- 4) Tranco top-10k homepages (benign, evaluation only; rank never a feature) ----------
+# ---------- 4) Tranco top-10k homepages (benign) ----------
+# Hash-partitioned per D15:
+#   partition A (~70%) -> TRAINING benign bare-homepage distractor (the model must learn
+#     that bare popular domains are benign; "github.com" had zero benign training rows before)
+#   partition B (~30%) -> sealed eval_tranco (FPR check; zero overlap by registrable domain,
+#     guaranteed by the hash partition itself)
+# Tranco is used ONLY as training negatives on partition A; rank/order is never a feature.
 tranco = Path("data/external/tranco/JZPGY-top10k.csv")
-tranco_domains = []
+tranco_domains, trancoA, trancoB = [], [], []
 if tranco.exists():
     for r in csv.reader(open(tranco, encoding="utf-8", errors="replace")):
         if len(r) >= 2:
             rank, domain = r[0].strip(), r[1].strip().lower()
             if domain and domain not in tranco_domains:
                 tranco_domains.append(domain)
-                add("https://" + domain + "/", "benign", "Tranco JZPGY top10k",
-                    "tranco", "eval_tranco", date="2026-11-04",
-                    license_str="Tranco terms; research snapshot")
+                h = int(hashlib.sha256(domain.encode()).hexdigest()[:8], 16) % 10
+                if h < 7:
+                    trancoA.append(domain)
+                    add("https://" + domain + "/", "benign", "Tranco JZPGY top10k",
+                        "tranco", "train_pool", date="2026-11-04",
+                        license_str="Tranco terms; research snapshot; training NEGATIVES only on partition A")
+                else:
+                    trancoB.append(domain)
+                    add("https://" + domain + "/", "benign", "Tranco JZPGY top10k",
+                        "tranco", "eval_tranco", date="2026-11-04",
+                        license_str="Tranco terms; research snapshot")
+assert not (set(trancoA) & set(trancoB)), "Tranco partitions overlap"
 source_counts["Tranco JZPGY top10k"] = len(tranco_domains)
+source_counts["Tranco partition A (train)"] = len(trancoA)
+source_counts["Tranco partition B (sealed eval)"] = len(trancoB)
+
+# ---------- 4b) Common Crawl CDX benign paths (strings only; fetched by scripts/fetch_cdx.py) ----------
+# Benign URLs WITH paths on popular domains; resumable cache in data/external/commoncrawl/benign_paths.ndjson.
+cdx = Path("data/external/commoncrawl/benign_paths.ndjson")
+cdx_rows = 0
+if cdx.exists():
+    seen_cdx = set()
+    for line in cdx.open(encoding="utf-8", errors="ignore"):
+        try:
+            rec = json.loads(line)
+        except Exception:
+            continue
+        u = str(rec.get("url", "")).strip()
+        if not u or u in seen_cdx:
+            continue
+        seen_cdx.add(u)
+        try:
+            _parts = urlsplit(u if "://" in u else "//" + u)
+            host = (_parts.hostname or "").lower().rstrip(".")
+            query = _parts.query or ""
+        except Exception:
+            continue
+        d_req = str(rec.get("domain", "")).lower()
+        d_act = host[4:] if host.startswith("www.") else host
+        has_path = (_parts.path or "") not in ("", "/") or bool(query)
+        if not host or d_act != d_req or not re.search(r"[/?]", (host + (_parts.path or "") + query)):
+            continue
+        if not has_path:                     # bare hosts are covered by Tranco A; we want paths
+            continue
+        add(u, "benign", "Common Crawl CDX", "commoncrawl", "train_pool", date="2026-11-05",
+            license_str="Common Crawl / Wayback metadata; web archive text")
+        cdx_rows += 1
+source_counts["Common Crawl CDX"] = cdx_rows
 
 # ---------- 5) Fresh phishing feeds (strings only, never dereferenced) ----------
 feeds = [
@@ -287,6 +337,12 @@ manifest = {
     "phresh_benchmark_file_summary": bench_results,
     "tranco_list_id": "JZPGY",
     "tranco_created_on": "2026-11-04",
+    "tranco_partition": {
+        "rule": "sha256(registrable_domain)%10 < 7 -> partition A (training benign negatives); >= 7 -> partition B (sealed eval_tranco)",
+        "train_domains": len(trancoA),
+        "eval_domains": len(trancoB),
+        "note": "Tranco is training negatives ONLY on partition A; rank/order is never a feature",
+    },
     "no_url_requests": True,
     "split_by": "registrable_domain (tldextract, private suffixes)",
 }

@@ -29,6 +29,11 @@ class URLModel:
         raw=float(self._raw(c,x))
         p=float(_calibrate([raw],self.bundle.get('calibration',{}))[0])
         thresholds=self.bundle['thresholds']; t=float(thresholds.get(mode,thresholds['balanced']))
-        return {'probability':round(p,6),'class':'phishing' if p>=t else 'legitimate','mode':mode,'threshold':t,'canonical_url':c,'reasons':reasons(c),'model_version':self.bundle.get('version','2.0.0')}
+        rs=reasons(c,self.bundle)
+        if p>=t:
+            rs=[r for r in rs if 'no strong lexical warning signal' not in r]
+            if not rs:
+                rs=[f"stacked model probability {p:.3f} exceeds the {mode} threshold {t:.3f}"]
+        return {'probability':round(p,6),'class':'phishing' if p>=t else 'legitimate','mode':mode,'threshold':t,'canonical_url':c,'reasons':rs,'model_version':self.bundle.get('version','2.0.0')}
 
 def load(path='results/model_bundle.joblib'): return URLModel(joblib.load(path))
