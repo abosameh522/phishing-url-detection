@@ -20,3 +20,12 @@ logs/
 .next/
 node_modules/
 src/*.egg-info/
+
+# regenerable bulks: never track
+data/processed/*.parquet
+results/slice_*_scores.parquet
+results/feat_cache_*.npz
+results/slice_*_probs_*.npy
+results/cv_probs_*.npy
+results/v1_checkpoint.joblib
+results/v2_checkpoint.joblib
