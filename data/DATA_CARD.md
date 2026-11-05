@@ -1,41 +1,111 @@
 # Data Card — `data/processed/urls_unified.parquet`
 
-**Generated:** 2026-11-05 (branch `rebuild/v2`). Rebuilt from scratch by `scripts/ingest_external.py`; all numbers below are computed from the parquet on disk, never fabricated.
+**Generated:** from `data/processed/manifest.json` (created_at 2026-11-05T02:47:37.340964+00:00) by
+`scripts/render_data_docs.py`. No count on this page is hand-typed.
 
-## Composition
+- Total rows: **2,012,875** (654,874 benign / 1,358,001 phishing)
+- Registrable domains: **917,633**
+- Conflicting-label URLs removed: **6,080**
+- Training rows removed to keep evaluation domains out of the train pool: **594,918**
 
-| Source | family | rows kept | label schema | role |
-|---|---|---|---|---|
-| malicious_phish.csv | kaggle_like | 522,214 | `type` (benign/phishing) | train_pool |
-| PhreshPhish train | phreshphish | 276,729 | `label` | train_pool |
-| MURL (Mendeley) | mendeley_academic | 783,702 | `type` (phishing/malware/defacement→phishing; benign/legitimate→benign) | train_pool |
-| PhishBD_2026 (Mendeley) | mendeley_academic | 131,167 | `label` 0=benign,1=phishing | train_pool |
-| PhreshPhish test | phreshphish | 91,260 | `label` | eval_sealed |
-| LegitPhish (Mendeley) | mendeley_academic | 100,873 | `ClassLabel` inverted (0=benign,1=phishing) | eval_sealed |
-| Phishing.Database active | fresh_phishing | 766,057 | strings only, labeled phishing | eval_fresh |
-| OpenPhish (2026-11-05 snapshot) | fresh_phishing | 300 | community feed terms | eval_fresh |
-| Tranco JZPGY top-10k | tranco | 9,502 | benign homepages | eval_tranco |
+## Per-source, per-class counts (rows kept)
 
-**Total:** 1,828,468 unique canonical URLs, 594,413+ registrable domains, 655,159 benign / 1,173,309 phishing.
+```text
+label              benign  phishing
+family                             
+fresh_phishing          0    766316
+kaggle_like        254456     60695
+mendeley_academic  200007    342873
+phreshphish        190924    188117
+tranco               9487         0
+```
+
+## Split roles (by registrable domain; zero train/eval overlap asserted)
+
+```text
+label        benign  phishing   total
+split_role                           
+calibration   55889     58636  114525
+eval_fresh        0    766316  766316
+eval_sealed  152573    110029  262602
+eval_tranco    9487         0    9487
+holdout       75925     71391  147316
+train_dev    291642    289535  581177
+validation    69358     62094  131452
+```
+
+## Label normalization
+
+Source labels are normalized to `benign`/`phishing`:
+- PhreshPhish: `benign`/`phish` → `benign`/`phishing` (mapped, see scripts/ingest_external.py)
+- MURL `type`: `legitimate`/`benign` → benign; `phishing`/`malware`/`defacement` → phishing
+- PhishBD_2026 `label`: 0/1 → benign/phishing
+- LegitPhish `ClassLabel`: inverted (0=benign, 1=phishing); the inverted flag is verified upstream
+- Kaggle `malicious_phish.csv type`: only `benign`/`phishing` kept (defacement/malware dropped)
+- Feeds (OpenPhish, Phishing.Database): labeled phishing by construction; strings only
 
 ## Columns
 
-`url_raw, url_canonical, label, source, family, split_role, date, brand_target, lang, registrable_domain, host, tld, has_scheme_raw, has_www_raw, has_trailing_slash_raw, hard_negative, hard_positive, collected_at, license, sample_weight`
+url_raw, url_canonical, label, source, family, split_role, date, brand_target, lang,
+registrable_domain, host, tld, has_scheme_raw, has_www_raw, has_trailing_slash_raw,
+hard_negative, hard_positive, collected_at, license, sample_weight
 
-Canonicalization: lowercase scheme+host, strip scheme, strip `www`/`www2.`, drop default port (80/443), drop fragment, drop lone trailing `/`, repair `hxxps`/`[.]` defangs.
+Canonicalization: lowercase scheme+host, strip scheme, strip `www`/`www2.`, drop default port,
+drop fragment, drop lone trailing `/`, repair `hxxps`/`[.]` defangs.
 
-## Splitting & leakage control
+## Sources NOT ingested (documented, never fabricated)
 
-- Splits are assigned by **registrable domain** (`tldextract` with private suffixes). Each domain gets exactly one stable role.
-- All evaluation domains (eval_sealed, eval_fresh, eval_tranco) are removed from the training pool; asserted zero overlap after dedupe.
-- Conflicting labels on the same canonical URL → both copies dropped (6,006 conflicts).
-- Cross-source dedupe is by canonical URL (2,349,709 duplicates removed; eval sources outrank training for consistent labels).
-- `sample_weight` columns apply per-stratum rebalancing derived from the surface-cue artifact audit; eval rows keep weight 1.0.
+{
+  "ealvaradob/phishing-dataset": "repo/URLs resolve 404 (unavailable); see docs/DECISIONS.md D0",
+  "MURL": "ingested",
+  "PhishBD_2026": "ingested",
+  "PhiUSIIL": "repo not found (404)",
+  "URL-Phish": "repo not found (404)",
+  "LegitPhish": "ingested",
+  "Common Crawl": "CDX query deferred - not downloaded in this run"
+}
 
-## Sources NOT ingested (documented, not fabricated)
+## Licence and compliance
 
-`ealvaradob/phishing-dataset` (repo/URLs resolve 404), `PhiUSIIL` (repo not found), `URL-Phish` (repo not found), `Common Crawl` (CDX query deferred). See `docs/DECISIONS.md` D0 and `DOWNLOAD_COMMANDS.md`.
+PhreshPhish CC BY 4.0 (anti-phishing research only); Mendeley public datasets (licence metadata
+checked on their public pages); Tranco JZPGY snapshot (terms; research snapshot); OpenPhish
+community feed terms; Phishing.Database repository licence. **No URL was ever requested,
+resolved or opened; all data are strings.** PhreshPhish `html` column: never loaded
+(`phresh_html_loaded` = False).
 
-## License & compliance
+## PhreshPhish benchmark sets (sealed; evaluation only)
 
-PhreshPhish (CC BY 4.0, anti-phishing research only), Mendeley datasets (public data, verify licence metadata on Mendeley pages), Tranco (terms; research snapshot), OpenPhish (community feed terms), Phishing.Database (repository licence/terms). **No URL was ever requested or opened; all data are strings only.**
+Hash lists are SHA-256 of the raw URL string; matched to local test rows (string-only; never queried online).
+
+```text
+{
+  "benchmark-005": {
+    "hashes": 26370,
+    "matched_to_test_urls": 25919,
+    "base_rate_label": "005"
+  },
+  "benchmark-010": {
+    "hashes": 26640,
+    "matched_to_test_urls": 26188,
+    "base_rate_label": "010"
+  },
+  "benchmark-050": {
+    "hashes": 26727,
+    "matched_to_test_urls": 26275,
+    "base_rate_label": "050"
+  },
+  "benchmark-100": {
+    "hashes": 26419,
+    "matched_to_test_urls": 25968,
+    "base_rate_label": "100"
+  },
+  "benchmark-500": {
+    "hashes": 23755,
+    "matched_to_test_urls": 23359,
+    "base_rate_label": "500"
+  }
+}
+```
+
+- Tranco list id: **JZPGY** (created 2026-11-04)
+- `no_url_requests`: **True**

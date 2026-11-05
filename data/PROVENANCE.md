@@ -1,35 +1,18 @@
 # Provenance — unified corpus
 
-Built by `scripts/ingest_external.py` (2026-11-05) from the following local snapshots:
+Rendered by `scripts/render_data_docs.py` from `data/processed/manifest.json`
+(created 2026-11-05T02:47:37.340964+00:00). Everything below is reproducible from the two files.
 
-## Training pool (`train_pool`)
-
-- **malicious_phish.csv** — local Kaggle-style snapshot (522,214 rows; `type` column). Licence not embedded in the file → treated as provenance-uncertain, used for development only.
-- **PhreshPhish train** (56 shards) — Hugging Face `abosameh522/phishing-url-detection`, projected reads of `url,label,target,date,lang` only. CC BY 4.0; anti-phishing research only. 276,729 rows after canonical dedupe.
-- **MURL** (Mendeley public data, 783,702 rows; `url`/`type` incl. phishing/malware/defacement) — 2020 dataset, Mendeley dataset `5fk24y4xmg`.
-- **PhishBD_2026** (Mendeley public data, 131,167 rows; `url`/`label` 0=benign,1=phishing) — 2026 dataset, Mendeley `8d6zsfwc7z`.
-- **PhreshPhish train** contributes 276,729 rows.
-
-## Evaluation — sealed (`eval_sealed`)
-
-- **PhreshPhish test** (21 shards; 91,260 rows; CC BY 4.0) — used as the benchmarked sealed set; benchmark hash-lists (975 files) matched against it (strings only).
-- **LegitPhish** (Mendeley, 100,873 rows; `URL`/`ClassLabel` inverted 0=benign,1=phishing) — 2021 dataset, Mendeley `hx4m73v2sf`.
-
-## Evaluation — fresh (`eval_fresh`)
-
-- **Phishing.Database active** (789,054 URL strings) — repository feed, downloaded as strings only, never dereferenced.
-- **OpenPhish** (2026-11-05 snapshot, 300 rows) — community feed terms.
-
-## Evaluation — Tranco (`eval_tranco`)
-
-- **Tranco JZPGY top-10k** (9,502 domains, Nov 4 2026 list) — served as homepages (`https://domain/`), never used as a feature and never as training negatives.
-
-## Ingest hygiene
-
-- Dedupe by canonical URL across all sources; conflicting labels removed (6,006 URLs dropped); duplicates kept 2,349,709.
-- All evaluation domains removed from the training pool; zero train/eval overlap asserted.
-- `sample_weight` computed from the surface-cue artifact audit (pooled grouped AUC 0.8673 before → 0.3328 after stratum reweighting, target ≤0.60).
-
-## Not ingested
-
-`ealvaradob/phishing-dataset`, `PhiUSIIL`, `URL-Phish` (repositories not found/404), `Common Crawl` (deferred). No data was fabricated.
+- rows kept: 2,012,875
+- benign / phishing: 654,874 / 1,358,001
+- registrable domains: 917,633
+- kept per source: {"malicious_phish.csv": 522214, "PhreshPhish train": 498255, "PhreshPhish test": 168060, "MURL": 783702, "PhishBD_2026": 131167, "LegitPhish": 100873, "Tranco JZPGY top10k": 10000, "OpenPhish": 300, "Phishing.Database": 789054, "conflicting_urls_removed": 6080}
+- drops: {"malicious_phish.csv:unparseable": 1296, "PhreshPhish train:unparseable": 351, "PhreshPhish test:unparseable": 1065, "MURL:unparseable": 2854, "PhishBD_2026:unparseable": 82, "Phishing.Database:unparseable": 5147, "training_rows_removed_for_eval_domain_overlap": 594918}
+- conflicting_url removals: 6,080
+- eval_overlap removals from train: 594,918
+- split counts: {"eval_fresh": 766316, "train_dev": 581177, "eval_sealed": 262602, "holdout": 147316, "validation": 131452, "calibration": 114525, "eval_tranco": 9487}
+- PhreshPhish benchmark hash matching: {"benchmark-005": {"hashes": 26370, "matched_to_test_urls": 25919, "base_rate_label": "005"}, "benchmark-010": {"hashes": 26640, "matched_to_test_urls": 26188, "base_rate_label": "010"}, "benchmark-050": {"hashes": 26727, "matched_to_test_urls": 26275, "base_rate_label": "050"}, "benchmark-100": {"hashes": 26419, "matched_to_test_urls": 25968, "base_rate_label": "100"}, "benchmark-500": {"hashes": 23755, "matched_to_test_urls": 23359, "base_rate_label": "500"}}
+- tranco: id=JZPGY created=2026-11-04
+- no_url_requests: True
+- phresh_columns_read: ['url', 'label', 'target', 'date', 'lang']
+- phresh_html_loaded: False

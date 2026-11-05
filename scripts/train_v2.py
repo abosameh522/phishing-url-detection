@@ -115,6 +115,12 @@ def main():
     skf = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED)
     folds = list(skf.split(Xtr, ytr, groups=groups))
     for name in ["lgbm", "lgbm_light"]:
+        cache = Path(f"results/cv_probs_{name}.npy")
+        if cache.exists():
+            probs = np.frombuffer(cache.read_bytes(), dtype=np.float32)
+            print(f"[cv] {name} loaded from cache", flush=True)
+            cv_rows.append({"model": name, **bench_scores(ytr, probs)})
+            continue
         probs = np.zeros(len(ytr), dtype=np.float32)
         for k, (i1, i2) in enumerate(folds):
             m = family_factory[name](Xtr[i1], ytr[i1], wtr[i1])
@@ -122,7 +128,7 @@ def main():
             print(f"[cv] {name} fold {k} done", flush=True)
         sc = bench_scores(ytr, probs)
         cv_rows.append({"model": name, **sc})
-        Path(f"results/cv_probs_{name}.npy").write_bytes(probs.tobytes())
+        cache.write_bytes(probs.tobytes())
         print("[cv]", name, sc, flush=True)
 
     # ---------- B) char-ngram TF-IDF linear (+ stack) on the same folds ----------
@@ -135,15 +141,21 @@ def main():
     # linear baseline as a second family, on the same folds
     lr = SGDClassifier(loss="log_loss", alpha=1e-6, max_iter=8, tol=None,
                        n_jobs=2, random_state=SEED)
-    probs_lin = np.zeros(len(ytr), dtype=np.float32)
-    for k, (i1, i2) in enumerate(folds):
-        lr.fit(Ztr[i1], ytr[i1])
-        probs_lin[i2] = lr.predict_proba(Ztr[i2])[:, 1]
-        print(f"[cv] tfidf-linear fold {k} done", flush=True)
-    sc = bench_scores(ytr, probs_lin)
-    cv_rows.append({"model": "tfidf_char_linear", **sc})
-    Path("results/cv_probs_tfidf_char_linear.npy").write_bytes(probs_lin.tobytes())
-    print("[cv] tfidf_char_linear", sc, flush=True)
+    cache_lin = Path("results/cv_probs_tfidf_char_linear.npy")
+    if cache_lin.exists():
+        probs_lin = np.frombuffer(cache_lin.read_bytes(), dtype=np.float32)
+        print("[cv] tfidf_char_linear loaded from cache", flush=True)
+        cv_rows.append({"model": "tfidf_char_linear", **bench_scores(ytr, probs_lin)})
+    else:
+        probs_lin = np.zeros(len(ytr), dtype=np.float32)
+        for k, (i1, i2) in enumerate(folds):
+            lr.fit(Ztr[i1], ytr[i1])
+            probs_lin[i2] = lr.predict_proba(Ztr[i2])[:, 1]
+            print(f"[cv] tfidf-linear fold {k} done", flush=True)
+        sc = bench_scores(ytr, probs_lin)
+        cv_rows.append({"model": "tfidf_char_linear", **sc})
+        cache_lin.write_bytes(probs_lin.tobytes())
+        print("[cv] tfidf_char_linear", sc, flush=True)
 
     # stack of lgbm + tfidf-linear with equal weights inside CV
     for w in [0.3, 0.5, 0.7]:
@@ -161,6 +173,7 @@ def main():
     cross = {}
     probs_lgbm = np.frombuffer(Path("results/cv_probs_lgbm.npy").read_bytes(), dtype=np.float32)
     for f in fams:
+        idx_f = np.where(trn.family.to_numpy() == f)[0]
         # threshold from other-family benign OOF scores
         thr_idx = np.where(trn.family.to_numpy() != f)[0]
         benign_scores = probs_lgbm[thr_idx][ytr[thr_idx] == 0]
@@ -208,9 +221,9 @@ def main():
     p_cal_lg = lgbm_final.predict_proba(Xca)[:, 1]
     p_cal_li = lr_final.predict_proba(tfidf.transform(cal.url_canonical.str.lower().to_numpy()))[:, 1]
     p_cal_raw = w_text * p_cal_li + (1 - w_text) * p_cal_lg
-    h = int(cal.registrable_domain.map(lambda d: int(hashlib.sha256(d.encode()).hexdigest()[:8], 16) % 2))
-    calA = p_cal_raw[h == 0]; yA = yca[h == 0]
-    calB = p_cal_raw[h == 1]; yB = yca[h == 1]
+    h = cal.registrable_domain.map(lambda d: int(hashlib.sha256(d.encode()).hexdigest()[:8], 16) % 2).to_numpy(dtype=bool)
+    calA = p_cal_raw[~h]; yA = yca[~h]
+    calB = p_cal_raw[h]; yB = yca[h]
     # Platt: linear on the logit of the raw score, clipped
     eps = 1e-6
     zA = np.log(np.clip(calA, eps, 1 - eps) / (1 - np.clip(calA, eps, 1 - eps)))
@@ -224,11 +237,11 @@ def main():
         print("[calib] Platt fallback", e, flush=True)
     cal_pa = 1 / (1 + np.exp(-(a * zA + b)))
     zB = np.log(np.clip(calB, eps, 1 - eps) / (1 - np.clip(calB, eps, 1 - eps)))
-    cal_pr = 1 / (1 + np.exp(-(a * zB + b)))
-    cal_pr = {"a": a, "b": b, "halfA_rows": int(calA.shape[0]),
-              "halfA_ece": float(np.mean(np.abs(cal_pa - (yA.mean() * np.ones_like(yA)))) if True else 0),
-              "halfA_auc": float(roc_auc_score(yA, cal_pa)) if yA.sum() and (yA == 0).sum() else None,
-              "halfB_auc": float(roc_auc_score(yB, cal_pr)) if yB.sum() and (yB == 0).sum() else None}
+    cal_pol = 1 / (1 + np.exp(-(a * zB + b)))  # calibrated scores on half B (array)
+    cal_stats = {"a": a, "b": b, "halfA_rows": int(calA.shape[0]),
+                 "halfA_ece": float(np.mean(np.abs(cal_pa - (yA.mean() * np.ones_like(yA)))) if True else 0),
+                 "halfA_auc": float(roc_auc_score(yA, cal_pa)) if yA.sum() and (yA == 0).sum() else None,
+                 "halfB_auc": float(roc_auc_score(yB, cal_pol)) if yB.sum() and (yB == 0).sum() else None}
 
     # thresholds on calB at empirical FPR targets
     def thr_at(y, p, target):
@@ -237,16 +250,16 @@ def main():
             return 1.0
         scores = p[neg]
         return float(np.quantile(scores, 1 - target, method="higher"))
-    thresholds = {"strict": thr_at(yB, cal_pr, 0.001),
-                  "balanced": thr_at(yB, cal_pr, 0.01),
-                  "sensitive": thr_at(yB, cal_pr, 0.05)}
+    thresholds = {"strict": thr_at(yB, cal_pol, 0.001),
+                  "balanced": thr_at(yB, cal_pol, 0.01),
+                  "sensitive": thr_at(yB, cal_pol, 0.05)}
 
     # ---------- G) calibration diagnostics: histograms by class/source + reliability ----------
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
     for lbl, sel in [("benign", yB == 0), ("phishing", yB == 1)]:
-        axes[0].hist(cal_pr[sel], bins=50, alpha=0.5, label=f"calibration-B {lbl}", density=True)
+        axes[0].hist(cal_pol[sel], bins=50, alpha=0.5, label=f"calibration-B {lbl}", density=True)
     axes[0].set_yscale("log"); axes[0].set_xlabel("calibrated probability"); axes[0].set_title("calibration B by class"); axes[0].legend()
-    frac_pos, mean_pred = calibration_curve(yB, cal_pr, n_bins=10, strategy="quantile")
+    frac_pos, mean_pred = calibration_curve(yB, cal_pol, n_bins=10, strategy="quantile")
     axes[1].plot(mean_pred, frac_pos, "o-", label="calibrated")
     axes[1].plot([0, 1], [0, 1], "--", color="gray", label="ideal")
     axes[1].set_xlabel("mean predicted probability"); axes[1].set_ylabel("fraction positive"); axes[1].legend()
@@ -255,7 +268,7 @@ def main():
     fig.tight_layout(); fig.savefig("results/calibration_diagnostics.png", dpi=120)
     # per-source histograms (json-serial binned)
     per_source_hist = {}
-    for src, g in cal.assign(p=cal_pr, y=yca).groupby("source"):
+    for src, g in cal.assign(p=cal_pol, y=yca).groupby("source"):
         per_source_hist[src] = {"rows": int(len(g)),
                                 "phish": int(g.y.sum()),
                                 "mean_p_phish": float(g.loc[g.y == 1, "p"].mean()),
@@ -268,9 +281,9 @@ def main():
     # many legit URLs scored 0.56-0.66 while phishing-pattern URLs scored 0.995: this
     # looks like heavily imbalanced scoring compressing the benign tail. Record the
     # benign quantiles of calibrated probabilities here for reference.
-    diag = {"benign_quantiles": {q: float(np.quantile(cal_pr[yB == 0], q)) for q in [0.5, 0.9, 0.99, 0.999]},
-            "phish_quantiles": {q: float(np.quantile(cal_pr[yB == 1], q)) for q in [0.01, 0.1, 0.5]},
-            "w_text": w_text, "thresholds": thresholds, "calib": cal_pr}
+    diag = {"benign_quantiles": {str(q): float(np.quantile(cal_pol[yB == 0], q)) for q in [0.5, 0.9, 0.99, 0.999]},
+            "phish_quantiles": {str(q): float(np.quantile(cal_pol[yB == 1], q)) for q in [0.01, 0.1, 0.5]},
+            "w_text": w_text, "thresholds": thresholds, "calib": cal_stats}
     Path("results/model_v2_diagnostics.json").write_text(json.dumps(diag, indent=2))
 
     # ---------- I) persist bundle ----------
@@ -285,7 +298,7 @@ def main():
                            "blend on validation; Platt on calibration half A; thresholds on half B; "
                            "holdout untouched",
                "cv": cv_rows, "cross_source": cross, "blend": blend_results,
-               "w_text": w_text, "calibration": cal_pr, "thresholds": thresholds,
+               "w_text": w_text, "calibration": cal_stats, "thresholds": thresholds,
                "train_rows": int(len(trn)), "validation_rows": int(len(val)),
                "calibration_rows": int(len(cal)),
                "optional_char_cnn": "skipped: torch unavailable; decision in docs/DECISIONS.md"}
