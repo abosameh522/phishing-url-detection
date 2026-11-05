@@ -1,12 +1,12 @@
 # Data Card — `data/processed/urls_unified.parquet`
 
-**Generated:** from `data/processed/manifest.json` (created_at 2026-11-05T02:47:37.340964+00:00) by
+**Generated:** from `data/processed/manifest.json` (created_at 2026-11-05T03:13:07.271485+00:00) by
 `scripts/render_data_docs.py`. No count on this page is hand-typed.
 
-- Total rows: **2,012,875** (654,874 benign / 1,358,001 phishing)
-- Registrable domains: **917,633**
-- Conflicting-label URLs removed: **6,080**
-- Training rows removed to keep evaluation domains out of the train pool: **594,918**
+- Total rows: **2,013,066** (630,796 benign / 1,382,270 phishing)
+- Registrable domains: **918,237**
+- Conflicting-label URLs removed: **5,461**
+- Training rows removed to keep evaluation domains out of the train pool: **595,346**
 
 ## Per-source, per-class counts (rows kept)
 
@@ -14,9 +14,9 @@
 label              benign  phishing
 family                             
 fresh_phishing          0    766316
-kaggle_like        254456     60695
-mendeley_academic  200007    342873
-phreshphish        190924    188117
+kaggle_like        254169     60422
+mendeley_academic  176529    367462
+phreshphish        190611    188070
 tranco               9487         0
 ```
 
@@ -25,13 +25,13 @@ tranco               9487         0
 ```text
 label        benign  phishing   total
 split_role                           
-calibration   55889     58636  114525
+calibration   55960     58614  114574
 eval_fresh        0    766316  766316
-eval_sealed  152573    110029  262602
+eval_sealed  128469    134752  263221
 eval_tranco    9487         0    9487
-holdout       75925     71391  147316
-train_dev    291642    289535  581177
-validation    69358     62094  131452
+holdout       76144     71417  147561
+train_dev    291572    289200  580772
+validation    69164     61971  131135
 ```
 
 ## Label normalization
@@ -40,7 +40,9 @@ Source labels are normalized to `benign`/`phishing`:
 - PhreshPhish: `benign`/`phish` → `benign`/`phishing` (mapped, see scripts/ingest_external.py)
 - MURL `type`: `legitimate`/`benign` → benign; `phishing`/`malware`/`defacement` → phishing
 - PhishBD_2026 `label`: 0/1 → benign/phishing
-- LegitPhish `ClassLabel`: inverted (0=benign, 1=phishing); the inverted flag is verified upstream
+- LegitPhish `ClassLabel`: **0=phishing, 1=benign** (0-label rows are IP-hosted droppers and
+  malware URLs; 1-label rows are normal small-business sites — verified by content inspection
+  after the model flagged a sealed-slice AUC of 0.016 under the previous mapping)
 - Kaggle `malicious_phish.csv type`: only `benign`/`phishing` kept (defacement/malware dropped)
 - Feeds (OpenPhish, Phishing.Database): labeled phishing by construction; strings only
 
@@ -81,27 +83,27 @@ Hash lists are SHA-256 of the raw URL string; matched to local test rows (string
 {
   "benchmark-005": {
     "hashes": 26370,
-    "matched_to_test_urls": 25919,
+    "matched_to_test_urls": 25918,
     "base_rate_label": "005"
   },
   "benchmark-010": {
     "hashes": 26640,
-    "matched_to_test_urls": 26188,
+    "matched_to_test_urls": 26187,
     "base_rate_label": "010"
   },
   "benchmark-050": {
     "hashes": 26727,
-    "matched_to_test_urls": 26275,
+    "matched_to_test_urls": 26274,
     "base_rate_label": "050"
   },
   "benchmark-100": {
     "hashes": 26419,
-    "matched_to_test_urls": 25968,
+    "matched_to_test_urls": 25967,
     "base_rate_label": "100"
   },
   "benchmark-500": {
     "hashes": 23755,
-    "matched_to_test_urls": 23359,
+    "matched_to_test_urls": 23358,
     "base_rate_label": "500"
   }
 }

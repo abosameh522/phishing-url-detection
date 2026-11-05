@@ -27,18 +27,21 @@ if model_ok:
         groups = {}
         for r in rows:
             groups.setdefault(r["label"], []).append(r)
-        acc = {}
-        for label, rs in groups.items():
-            preds = []
-            for r in rs:
-                try:
-                    preds.append(p.predict(r["url"])["class"])
-                except Exception:
-                    preds.append("error")
-            good = sum((x == "legitimate") == (label == "legitimate") for x in preds)
-            acc[label] = good / len(rs)
-        report["G1"] = acc
-        G1 = acc.get("legitimate", 0) >= .95 and acc.get("phishing", 0) >= .85
+        # accuracy at every declared operating mode (spec check: 'balanced')
+        acc2 = {}
+        for mode in ["strict", "balanced", "sensitive"]:
+            acc2[mode] = {}
+            for label, rs in groups.items():
+                good = 0
+                for r in rs:
+                    try:
+                        out = p.predict(r["url"], mode=mode)
+                        good += (out["class"] == "phishing") == (label == "phishing")
+                    except Exception:
+                        pass
+                acc2[mode][label] = good / len(rs)
+        report["G1"] = {"per_mode": acc2, "note": "spec check uses the 'balanced' operating point"}
+        G1 = acc2["balanced"].get("legitimate", 0) >= .95 and acc2["balanced"].get("phishing", 0) >= .85
     except Exception as e:
         report["G1"] = {"error": str(e)}; G1 = False
 else:

@@ -1,25 +1,25 @@
 {
-  "pooled_auc_before": 0.7913955254162586,
-  "pooled_auc_after": 0.29304898616087777,
+  "pooled_auc_before": 0.7911072369036292,
+  "pooled_auc_after": 0.2931492751815833,
   "per_source_auc": {
     "MURL": {
-      "before": 0.6733706716915042,
-      "after": 0.38339000965224
+      "before": 0.6775571416314146,
+      "after": 0.37630295542571346
     },
     "PhishBD_2026": {
-      "before": 0.62166130829182,
+      "before": 0.6216220733630151,
       "after": 0.462854487101913
     },
     "PhreshPhish train": {
-      "before": 0.9049270921431913,
-      "after": 0.286538939820871
+      "before": 0.9046913758360688,
+      "after": 0.2920872511880561
     },
     "malicious_phish.csv": {
-      "before": 0.9220424290587146,
-      "after": 0.1265572869445856
+      "before": 0.9216319587601696,
+      "after": 0.1393980792573536
     }
   },
   "common_strata": 204,
   "weight_min": 0.0,
-  "weight_max": 1259.9986572265625
+  "weight_max": 1260.5269775390625
 }

@@ -1,10 +1,36 @@
 {
-  "legitimate_accuracy": 1.0,
-  "phishing_accuracy": 1.0,
-  "G1": true,
-  "G4_domain_overlap": 0,
-  "G2_canonicalization": "pass",
-  "G3_tranco_homepages": "not_available",
-  "G5_reproducibility": "pass",
+  "G1": {
+    "per_mode": {
+      "strict": {
+        "legitimate": 1.0,
+        "phishing": 0.2
+      },
+      "balanced": {
+        "legitimate": 0.7857142857142857,
+        "phishing": 0.3
+      },
+      "sensitive": {
+        "legitimate": 0.5,
+        "phishing": 0.8
+      }
+    },
+    "note": "spec check uses the 'balanced' operating point"
+  },
+  "G2": {
+    "variants": 8,
+    "canonical_forms": 1
+  },
+  "G3": {
+    "tranco_fpr_value": 0.0014757035943923262,
+    "sealed_recall@1%FPR_v2": 0.706876335787224,
+    "sealed_recall@1%FPR_v1": 0.6765465447637141
+  },
+  "G4": {
+    "train_eval_domain_overlap": 0
+  },
+  "G5": {
+    "metrics_json": true,
+    "holdout_json": true
+  },
   "all_passed": false
 }

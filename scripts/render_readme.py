@@ -113,8 +113,8 @@ is generated from `results/*.json` by `scripts/render_readme.py`.
 
 The v1 notebook looked strong in-distribution (its own test ROC-AUC {fmt((v1.get('reference_own_test') or {}).get('roc_auc'))})
 but collapses under a domain-grouped, cross-source protocol: on the sealed PhreshPhish-test slice its
-recall@1%FPR is {fmt((v1.get('new_protocol') or {{}}).get('eval_sealed', {{}}).get('recall@0.010FPR'))} and it flags
-{fmt(100 * ((v1.get('new_protocol') or {{}}).get('eval_tranco') or {{}}).get('at_v1_threshold', {{}}).get('fpr', 0), 1)}% of benign
+recall@1%FPR is {fmt((v1.get('new_protocol') or {{}}).get('eval_sealed', dict()).get('recall@0.010FPR'))} and it flags
+{fmt(100 * ((v1.get('new_protocol') or {{}}).get('eval_tranco', dict()).get('at_v1_threshold', dict()).get('fpr', 0)), 1)}% of benign
 Tranco homepages. v2 was rebuilt to avoid those collection artifacts.
 
 ## Measured results

@@ -1,0 +1,66 @@
+{
+  "metrics": {
+    "rows": 147561,
+    "domains": 67217,
+    "phishing_rows": 71417,
+    "benign_rows": 76144,
+    "roc_auc": 0.9458151145942673,
+    "average_precision": 0.9473637820435676,
+    "recall@0.001FPR": 0.34313958861335536,
+    "recall@0.010FPR": 0.5622470840276125,
+    "recall@0.050FPR": 0.7472730582354341,
+    "modes": {
+      "strict": {
+        "threshold": 0.9864061244249145,
+        "tp": 7355,
+        "fp": 3,
+        "fn": 64062,
+        "tn": 76141,
+        "tpr": 0.10298668384278253,
+        "fpr": 3.939903341038033e-05,
+        "precision_raw": 0.9995922805110085,
+        "precision_at_50pct_prevalence": 0.9996175819529339
+      },
+      "balanced": {
+        "threshold": 0.9366320303489568,
+        "tp": 19980,
+        "fp": 38,
+        "fn": 51437,
+        "tn": 76106,
+        "tpr": 0.2797653219821611,
+        "fpr": 0.0004990544231981509,
+        "precision_raw": 0.9981017084623839,
+        "precision_at_50pct_prevalence": 0.9982193440721973
+      },
+      "sensitive": {
+        "threshold": 0.767769260801419,
+        "tp": 43102,
+        "fp": 1097,
+        "fn": 28315,
+        "tn": 75047,
+        "tpr": 0.6035257711749303,
+        "fpr": 0.014406913217062408,
+        "precision_raw": 0.9751804339464694,
+        "precision_at_50pct_prevalence": 0.9766853031390661
+      }
+    },
+    "per_source": null,
+    "bootstrap_ci": {
+      "roc_auc": {
+        "lo": 0.9393942096301784,
+        "hi": 0.9511908332353486
+      },
+      "average_precision": {
+        "lo": 0.9398738331046639,
+        "hi": 0.9543013136998866
+      },
+      "recall@0.010FPR": {
+        "lo": 0.5158257426823538,
+        "hi": 0.6054930726009125
+      }
+    },
+    "seconds": 31.1
+  },
+  "commit": "2e43d6e982f66e1d3fe5058b61b69a0b176e148b",
+  "evaluated_once": true
+}

@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-11-05T02:47:37.340964+00:00",
+  "created_at": "2026-11-05T03:13:07.271485+00:00",
   "sources_attempted": [
     "malicious_phish.csv",
     "PhreshPhish",
@@ -24,7 +24,7 @@
     "Tranco JZPGY top10k": 10000,
     "OpenPhish": 300,
     "Phishing.Database": 789054,
-    "conflicting_urls_removed": 6080
+    "conflicting_urls_removed": 5461
   },
   "sources_skipped": {
     "ealvaradob/phishing-dataset": "repo/URLs resolve 404 (unavailable); see docs/DECISIONS.md D0",
@@ -35,7 +35,7 @@
     "LegitPhish": "ingested",
     "Common Crawl": "CDX query deferred - not downloaded in this run"
   },
-  "rows_kept": 2012875,
+  "rows_kept": 2013066,
   "rows_dropped": {
     "malicious_phish.csv:unparseable": 1296,
     "PhreshPhish train:unparseable": 351,
@@ -43,24 +43,24 @@
     "MURL:unparseable": 2854,
     "PhishBD_2026:unparseable": 82,
     "Phishing.Database:unparseable": 5147,
-    "training_rows_removed_for_eval_domain_overlap": 594918
+    "training_rows_removed_for_eval_domain_overlap": 595346
   },
-  "conflicting_urls_removed": 6080,
+  "conflicting_urls_removed": 5461,
   "class_balance": {
-    "phishing": 1358001,
-    "benign": 654874
+    "phishing": 1382270,
+    "benign": 630796
   },
-  "registrable_domains": 917633,
+  "registrable_domains": 918237,
   "split_counts": {
     "eval_fresh": 766316,
-    "train_dev": 581177,
-    "eval_sealed": 262602,
-    "holdout": 147316,
-    "validation": 131452,
-    "calibration": 114525,
+    "train_dev": 580772,
+    "eval_sealed": 263221,
+    "holdout": 147561,
+    "validation": 131135,
+    "calibration": 114574,
     "eval_tranco": 9487
   },
-  "reserved_eval_domains": 466968,
+  "reserved_eval_domains": 467548,
   "phresh_columns_read": [
     "url",
     "label",
@@ -72,27 +72,27 @@
   "phresh_benchmark_file_summary": {
     "benchmark-005": {
       "hashes": 26370,
-      "matched_to_test_urls": 25919,
+      "matched_to_test_urls": 25918,
       "base_rate_label": "005"
     },
     "benchmark-010": {
       "hashes": 26640,
-      "matched_to_test_urls": 26188,
+      "matched_to_test_urls": 26187,
       "base_rate_label": "010"
     },
     "benchmark-050": {
       "hashes": 26727,
-      "matched_to_test_urls": 26275,
+      "matched_to_test_urls": 26274,
       "base_rate_label": "050"
     },
     "benchmark-100": {
       "hashes": 26419,
-      "matched_to_test_urls": 25968,
+      "matched_to_test_urls": 25967,
       "base_rate_label": "100"
     },
     "benchmark-500": {
       "hashes": 23755,
-      "matched_to_test_urls": 23359,
+      "matched_to_test_urls": 23358,
       "base_rate_label": "500"
     }
   },
