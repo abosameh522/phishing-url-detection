@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-11-05T02:03:47.260251+00:00",
+  "created_at": "2026-11-05T02:47:37.340964+00:00",
   "sources_attempted": [
     "malicious_phish.csv",
     "PhreshPhish",
@@ -16,15 +16,15 @@
   ],
   "sources_kept": {
     "malicious_phish.csv": 522214,
-    "PhreshPhish train": 276729,
-    "PhreshPhish test": 91260,
+    "PhreshPhish train": 498255,
+    "PhreshPhish test": 168060,
     "MURL": 783702,
     "PhishBD_2026": 131167,
     "LegitPhish": 100873,
     "Tranco JZPGY top10k": 10000,
     "OpenPhish": 300,
     "Phishing.Database": 789054,
-    "conflicting_urls_removed": 6006
+    "conflicting_urls_removed": 6080
   },
   "sources_skipped": {
     "ealvaradob/phishing-dataset": "repo/URLs resolve 404 (unavailable); see docs/DECISIONS.md D0",
@@ -35,31 +35,32 @@
     "LegitPhish": "ingested",
     "Common Crawl": "CDX query deferred - not downloaded in this run"
   },
-  "rows_kept": 1828468,
+  "rows_kept": 2012875,
   "rows_dropped": {
     "malicious_phish.csv:unparseable": 1296,
-    "unsupported_label": 298326,
+    "PhreshPhish train:unparseable": 351,
+    "PhreshPhish test:unparseable": 1065,
     "MURL:unparseable": 2854,
     "PhishBD_2026:unparseable": 82,
     "Phishing.Database:unparseable": 5147,
-    "training_rows_removed_for_eval_domain_overlap": 521241
+    "training_rows_removed_for_eval_domain_overlap": 594918
   },
-  "conflicting_urls_removed": 6006,
+  "conflicting_urls_removed": 6080,
   "class_balance": {
-    "phishing": 1173309,
-    "benign": 655159
+    "phishing": 1358001,
+    "benign": 654874
   },
-  "registrable_domains": 807546,
+  "registrable_domains": 917633,
   "split_counts": {
-    "eval_fresh": 766350,
-    "train_dev": 514868,
-    "eval_sealed": 188454,
-    "holdout": 130931,
-    "validation": 117221,
-    "calibration": 101142,
-    "eval_tranco": 9502
+    "eval_fresh": 766316,
+    "train_dev": 581177,
+    "eval_sealed": 262602,
+    "holdout": 147316,
+    "validation": 131452,
+    "calibration": 114525,
+    "eval_tranco": 9487
   },
-  "reserved_eval_domains": 432807,
+  "reserved_eval_domains": 466968,
   "phresh_columns_read": [
     "url",
     "label",
@@ -71,27 +72,27 @@
   "phresh_benchmark_file_summary": {
     "benchmark-005": {
       "hashes": 26370,
-      "matched_to_test_urls": 0,
+      "matched_to_test_urls": 25919,
       "base_rate_label": "005"
     },
     "benchmark-010": {
       "hashes": 26640,
-      "matched_to_test_urls": 0,
+      "matched_to_test_urls": 26188,
       "base_rate_label": "010"
     },
     "benchmark-050": {
       "hashes": 26727,
-      "matched_to_test_urls": 0,
+      "matched_to_test_urls": 26275,
       "base_rate_label": "050"
     },
     "benchmark-100": {
       "hashes": 26419,
-      "matched_to_test_urls": 0,
+      "matched_to_test_urls": 25968,
       "base_rate_label": "100"
     },
     "benchmark-500": {
       "hashes": 23755,
-      "matched_to_test_urls": 0,
+      "matched_to_test_urls": 23359,
       "base_rate_label": "500"
     }
   },

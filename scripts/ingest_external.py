@@ -50,14 +50,15 @@ def add(raw, label, source, family, role, date="", target="", lang="",
 def read_parquets(folder, source, family, role, license_str):
     paths = sorted(Path(folder).glob("*.parquet"))
     n = 0
+    LABEL_MAP = {"benign": "benign", "phish": "phishing", "phishing": "phishing"}
     for path in paths:
         t = pq.read_table(path, columns=["url", "label", "target", "date", "lang"])
         d = t.to_pydict()
         for i, u in enumerate(d["url"]):
             if not u:
                 continue
-            label = str(d["label"][i]).lower()
-            if label not in ("benign", "phishing"):
+            label = LABEL_MAP.get(str(d["label"][i]).lower())
+            if label is None:
                 drops["unsupported_label"] = drops.get("unsupported_label", 0) + 1
                 continue
             date = d["date"][i]
