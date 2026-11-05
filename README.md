@@ -19,11 +19,9 @@ Tranco homepages. v2 was rebuilt to avoid those collection artifacts.
 
 | slice | model | rows | recall@1%FPR | ROC-AUC | AP |
 |---|---|---:|---:|---:|---:|
-| slice | model | rows | recall@1%FPR | ROC-AUC | AP |
-|---|---|---:|---:|---:|---:|
 | eval_sealed | v1 (refit on same pool) | 263,221 | 0.677 | 0.959 | 0.966 |
 | holdout | v1 (refit on same pool) | 147,561 | 0.536 | 0.936 | 0.939 |
-| eval_tranco | v1 (refit on same pool) | 9,487 | n/a | nan | 0.000 |
+| eval_tranco | v1 (refit on same pool) | 9,487 | n/a | n/a | 0.000 |
 | validation | v1 (refit on same pool) | 131,135 | 0.641 | 0.967 | 0.965 |
 | eval_sealed | **v2** | 263,221 | 0.707 | 0.963 | 0.969 |
 | eval_fresh | **v2** | 766,316 | n/a | n/a | n/a |

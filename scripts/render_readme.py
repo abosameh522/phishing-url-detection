@@ -26,6 +26,8 @@ sanity = load("hard_sanity_results.json", {})
 
 
 def fmt(x, nd=3):
+    if isinstance(x, float) and (x != x):  # NaN
+        return "n/a"
     if isinstance(x, bool):
         return "yes" if x else "no"
     if isinstance(x, (int, float)):
@@ -119,8 +121,6 @@ Tranco homepages. v2 was rebuilt to avoid those collection artifacts.
 
 ## Measured results
 
-| slice | model | rows | recall@1%FPR | ROC-AUC | AP |
-|---|---|---:|---:|---:|---:|
 {before_rows}
 {ho_rows}
 
