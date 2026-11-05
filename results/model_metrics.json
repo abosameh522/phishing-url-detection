@@ -1,0 +1,14 @@
+{
+  "train_rows": 302745,
+  "validation_rows": 88074,
+  "calibration_rows": 39386,
+  "features": 28,
+  "roc_auc_validation": 0.7157404008563404,
+  "average_precision_validation": 0.331451044631083,
+  "thresholds": {
+    "strict": 0.9866752028465271,
+    "balanced": 0.7954843044281006,
+    "sensitive": 0.6984911561012268
+  },
+  "protocol": "domain-hash development split; final holdout untouched"
+}

@@ -1,0 +1,10 @@
+{
+  "legitimate_accuracy": 1.0,
+  "phishing_accuracy": 1.0,
+  "G1": true,
+  "G4_domain_overlap": 0,
+  "G2_canonicalization": "pass",
+  "G3_tranco_homepages": "not_available",
+  "G5_reproducibility": "pass",
+  "all_passed": false
+}

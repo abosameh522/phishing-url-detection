@@ -1,0 +1,16 @@
+.venv
+.venv/
+__pycache__/
+*.pyc
+.env
+*.joblib
+*.pkl
+*.onnx
+malicious_phish.csv
+data/raw/
+data/processed/*.parquet
+*.csv
+!tests/sanity_urls.csv
+logs/
+.next/
+node_modules/

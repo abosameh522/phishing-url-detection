@@ -1,0 +1,36 @@
+{
+  "created_at": "2026-11-05T00:41:29.271431+00:00",
+  "sources_attempted": [
+    "malicious_phish.csv",
+    "PhreshPhish",
+    "ealvaradob/phishing-dataset",
+    "Common Crawl",
+    "Tranco",
+    "OpenPhish",
+    "PhishTank"
+  ],
+  "sources_kept": {
+    "malicious_phish.csv": 510639
+  },
+  "sources_skipped": {
+    "external_downloads": "not used without a verified local snapshot; see PROVENANCE.md"
+  },
+  "rows_kept": 510639,
+  "rows_dropped": {
+    "defacement": 96457,
+    "malware": 32520,
+    "unparseable": 1296
+  },
+  "conflicting_urls_removed": 4041,
+  "class_balance": {
+    "benign": 422602,
+    "phishing": 88037
+  },
+  "registrable_domains": 145328,
+  "split_counts": {
+    "train_pool": 430205,
+    "eval_sanity": 31472,
+    "holdout": 29251,
+    "eval_sealed": 19711
+  }
+}
