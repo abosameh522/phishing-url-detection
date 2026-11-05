@@ -32,8 +32,11 @@
 
 ## Stage 3: Models - IN PROGRESS
 
-- v1 reproduction script (`/tmp/v1_reproduce.py` → to be checked in as `scripts/v1_reproduce.py`) running in background: re-fits the legacy notebook pipeline (parse_url/get_features + HistGB + TextNgram blend w=0.7) on the new train pool, and re-scores it on eval_sealed/holdout under the new protocol.
-- Next after v1 finishes: train v2 candidates (LightGBM lexical, char-ngram TF-IDF linear, optional char-CNN, stack) under StratifiedGroupKFold(5, seed 42, by domain); pick by cross-source recall@1% FPR; calibrate; thresholds strict/balanced/sensitive.
+- **v1 refit + rescore complete** (`results/v1_rescore.json`, logs/v1_reproduce.log):
+  - v1 in-distribution own-test: ROC-AUC 0.9525, recall 0.739 @ FPR 0.045 (thr 0.613, w_text 0.7).
+  - v1 under the NEW grouped protocol: eval_sealed **AUC 0.538, recall@1%FPR 0.000**, FPR 41.3% at its own threshold; holdout AUC 0.928, recall@1%FPR 0.478; validation AUC 0.962, recall@1%FPR 0.595; eval_tranco **27.4% benign homepages flagged**.
+  - Conclusion: v1 is source-dependent and fails cross-source generalization + benign-FPR gates. This is the baseline G3 must beat.
+- Next: run `uv run python scripts/train_v2.py` (LightGBM / char-TFIDF-linear / stack; StratifiedGroupKFold(5, 42, by domain); cross-source pick; blend on validation; Platt on calib A; thresholds on calib B; holdout untouched).
 
 ## Stage 4: Evaluation - pending
 ## Stage 5: Gates, docs, git - pending
