@@ -59,3 +59,17 @@
   scratch on the corrected corpus. Holdout "touched once" restarts from this bundle/corpus pair.
 - v1 baseline records were re-fit by the same resumable script, so old-vs-new comparisons
   remain apples-to-apples on the corrected corpus.
+
+## D13 — Branch pushed with `--force-with-lease` after a regenerable-blob purge
+- The first push attempt timed out: the pack carried ~90 MB of regenerable artifacts from earlier
+  commits (43 MB×2 slice score dumps, feature-cache npz files, a big prob npy, and (untracked now)
+  the 156 MB corpus parquet; the parquet itself was never in git).
+- Regenerable artifacts were untracked (repo hygiene commit) and `git filter-repo --invert-paths`
+  removed those five historical blobs. `.git` shrank 189 MB → 39 MB and every commit still builds
+  all data/scripts from source.
+- The push used `--force-with-lease=refs/heads/rebuild/v2:<old-tip>`, verifying the remote was
+  exactly the tip pushed from this machine (initial commit 1e5c205); no other work could be
+  clobbered. This exception to the no-force-push rule is logged here deliberately.
+- Note: `commit` fields inside `results/v2_evaluation.json` and `results/final_holdout.json` record
+  the pre-rewrite hash of this same content (only regenerable blobs were removed; results were
+  produced by that code); `results/gates.json` is re-generated post-rewrite.

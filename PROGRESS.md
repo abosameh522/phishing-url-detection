@@ -51,3 +51,12 @@
 - `train_v2.py`, `evaluate_v2.py`, `v1_reproduce.py` are checkpoint/cache-resumable: CV probs in `results/cv_probs_*.npy`, features in `results/feat_cache_*.npz` (content-keyed), v1 in `results/v1_checkpoint.joblib`, eval slice scores in `results/slice_*_probs_*.npy` (bundle-keyed).
 - If a corpus-level label definition changes again (ingest script), invalidate `results/cv_probs_*.npy results/feat_cache_*.npy results/v1_checkpoint.joblib results/final_holdout.json results/slice_*_probs_*.npy` first and re-run the chain; log the reason in docs/DECISIONS.md.
 - Hard sanity: `uv run python scripts/build_hard_sanity.py`; docs: `scripts/render_data_docs.py`; README: `scripts/render_readme.py` (needs all results JSONs); gates: `uv run python scripts/gates.py`.
+
+## Final status (2026-11-05)
+
+- Corpus 2,013,066 rows (LegitPhish label-fixed); v2 stack w_text=0.7; holdout recall@1%FPR 0.5622
+  (AUC 0.9458) touched exactly once; sealed 0.7069 vs v1 0.6765; Tranco FPR 0.15%.
+- Gates: G2 G3 G4 G5 PASS; **G1 FAIL** (easy fixtures; OOD benign platform URLs + synthetic
+  private-IP phish strings — diagnosis in docs/LIMITS.md). main intentionally untouched;
+  merge blocked until G1 passes (needs benign-platform data, see DOWNLOAD_COMMANDS.md).
+- Pushed: rebuild/v2 → origin 6351daf.
