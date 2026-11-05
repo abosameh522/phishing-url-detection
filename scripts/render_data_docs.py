@@ -57,7 +57,9 @@ Source labels are normalized to `benign`/`phishing`:
 - PhreshPhish: `benign`/`phish` → `benign`/`phishing` (mapped, see scripts/ingest_external.py)
 - MURL `type`: `legitimate`/`benign` → benign; `phishing`/`malware`/`defacement` → phishing
 - PhishBD_2026 `label`: 0/1 → benign/phishing
-- LegitPhish `ClassLabel`: inverted (0=benign, 1=phishing); the inverted flag is verified upstream
+- LegitPhish `ClassLabel`: **0=phishing, 1=benign** (0-label rows are IP-hosted droppers and
+  malware URLs; 1-label rows are normal small-business sites — verified by content inspection
+  after the model flagged a sealed-slice AUC of 0.016 under the previous mapping)
 - Kaggle `malicious_phish.csv type`: only `benign`/`phishing` kept (defacement/malware dropped)
 - Feeds (OpenPhish, Phishing.Database): labeled phishing by construction; strings only
 

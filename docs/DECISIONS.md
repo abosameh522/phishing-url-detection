@@ -46,3 +46,16 @@
 
 ## D11 — PhreshPhish benchmark sets are sealed, evaluation-only
 - Benchmark hash lists (sha256 of the raw URL string, ~26.4k hashes each for base rates 005/010/050/100/500) are matched against local test rows as strings only (~56% match on a 5k sample of test URLs). They are published per-benchmark in the evaluation JSON if time permits; they never feed training or threshold selection.
+
+## D12 — LegitPhish ClassLabel mapping was inverted — corpus rebuilt AGAIN (hard reset)
+- Under the previous(?) 0=benign mapping the sealed slice scored AUC **0.0164** pooled, with
+  LegitPhish "phishing" rows scoring like benign and benign rows like phishing.
+- Content inspection of the raw CSV settled it: ClassLabel-0 rows are IP-hosted droppers
+  (`http://42.85.82.32:45638/i`, `.../yuop/*.exe`, redirect spam); ClassLabel-1 rows are normal
+  small-business sites and Wikipedia pages → **0=phishing, 1=benign**.
+- This changes conflict resolution across sources, so every downstream artifact was invalidated:
+  v1 checkpoint, CV prob caches, feature caches, slice score caches and `results/final_holdout.json`
+  were deleted; the whole chain (ingest → audit → v1 → train_v2 → evaluate_v2) was re-run from
+  scratch on the corrected corpus. Holdout "touched once" restarts from this bundle/corpus pair.
+- v1 baseline records were re-fit by the same resumable script, so old-vs-new comparisons
+  remain apples-to-apples on the corrected corpus.

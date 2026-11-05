@@ -1,0 +1,16 @@
+{
+  "threshold_mode": "balanced",
+  "threshold": 0.9344631078840967,
+  "overall_accuracy": 0.7980132450331126,
+  "by_label": {
+    "legitimate": {
+      "rows": 192,
+      "accuracy": 0.9947916666666666
+    },
+    "phishing": {
+      "rows": 110,
+      "accuracy": 0.45454545454545453
+    }
+  },
+  "note": "fixtures; run separately from the easy sanity set"
+}

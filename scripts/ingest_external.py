@@ -128,7 +128,10 @@ if pbd.exists():
                 license_str="Mendeley public data; verify licence metadata")
     source_counts["PhishBD_2026"] = len(seen)
 
-# LegitPhish: URL + ClassLabel (0=benign,1=phishing -> inverted)
+# LegitPhish: URL + ClassLabel (0=phishing, 1=benign). Confirmed 2026-11-05 by content
+# inspection: ClassLabel-0 rows are IP-hosted droppers (http://42.85.82.32:45638/i,
+# .../yuop/*.exe, redirect spam); ClassLabel-1 rows are normal small-business sites and
+# Wikipedia pages. The earlier 0=benign mapping inverted the class (sealed AUC 0.016).
 lp = Path("data/external/mendeley/LegitPhish_1_url_features_extracted1.csv")
 if lp.exists():
     seen = set()
@@ -140,10 +143,10 @@ if lp.exists():
         raw = raw.lstrip("//")
         lab = str(r.get("ClassLabel", "")).strip()
         if lab in ("0", 0):
-            add(raw, "benign", "LegitPhish", "mendeley_academic", "eval_sealed",
+            add(raw, "phishing", "LegitPhish", "mendeley_academic", "eval_sealed",
                 "2021", license_str="Mendeley public data; verify licence metadata")
         elif lab in ("1", 1):
-            add(raw, "phishing", "LegitPhish", "mendeley_academic", "eval_sealed",
+            add(raw, "benign", "LegitPhish", "mendeley_academic", "eval_sealed",
                 "2021", license_str="Mendeley public data; verify licence metadata")
     source_counts["LegitPhish"] = len(seen)
 

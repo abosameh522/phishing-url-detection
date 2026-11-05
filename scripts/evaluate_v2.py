@@ -13,7 +13,7 @@ Confidence intervals: domain-cluster bootstrap; registrable domains are hashed i
 domains (exact per-domain resampling is prohibitively slow for ~500k domains).
 """
 from pathlib import Path
-import json, sys, subprocess, csv, time
+import json, sys, subprocess, csv, time, hashlib, os
 import numpy as np
 import pandas as pd
 import joblib
@@ -128,7 +128,7 @@ def per_source_metrics(df, thr):
             for t in [0.001, 0.01, 0.05]:
                 rr, _ = recall_at_fpr(yv, pv, t)
                 r[f"recall@{t:.3f}FPR"] = rr
-        r["flagged_share_at_balanced"] = float((pv >= thr_balanced).mean())
+        r["flagged_share_at_balanced"] = float((pv >= thr).mean())
         out[src] = r
     return out
 
@@ -147,7 +147,15 @@ def main():
         if len(sub) == 0:
             continue
         t0 = time.time()
-        sub["p"] = score_batch(b, sub.url_canonical.tolist())
+        fp = hashlib.sha256(json.dumps({k: str(b.get(k)) for k in ["thresholds", "w_text"]}).encode()).hexdigest()[:16]
+        cache_p = Path(f"results/slice_{s}_probs_{fp}.npy")
+        if cache_p.exists():
+            p = np.load(cache_p)
+            print(f"[{s}] loaded cached scores", flush=True)
+        else:
+            p = score_batch(b, sub.url_canonical.tolist())
+            np.save(cache_p, p)
+        sub["p"] = p
         row = evaluate_frame(sub, b, p_col="p", thr_balanced=thr_balanced)
         row["per_source"] = per_source_metrics(sub, thr_balanced)
         row["seconds"] = round(time.time() - t0, 1)
@@ -161,7 +169,11 @@ def main():
     else:
         h = D[D.split_role == "holdout"].copy()
         t0 = time.time()
-        h["p"] = score_batch(b, h.url_canonical.tolist())
+        fp = hashlib.sha256(json.dumps({k: str(b.get(k)) for k in ["thresholds", "w_text"]}).encode()).hexdigest()[:16]
+        cache_p = Path(f"results/slice_holdout_probs_{fp}.npy")
+        h["p"] = np.load(cache_p) if cache_p.exists() else score_batch(b, h.url_canonical.tolist())
+        if not cache_p.exists():
+            np.save(cache_p, h["p"].to_numpy())
         hold = evaluate_frame(h, b)
         hold["seconds"] = round(time.time() - t0, 1)
         h[["source", "label", "url_canonical", "registrable_domain", "p"]].to_parquet("results/slice_holdout_scores.parquet")
@@ -212,10 +224,9 @@ def main():
     if v1_path.exists():
         v1 = json.loads(v1_path.read_text())
         for s, row in (v1.get("new_protocol") or {}).items():
+            atv1 = row.get("at_v1_threshold") or {}
             lines.append(f"| {s} | v1 (refit, same train pool) | {row.get('rows')} | "
-                         f"{row.get('matched_protocol', {}).get('recall@0.010FPR', row.get('recall@0.010FPR', 'n/a'))} | "
-                         f"{row.get('matched_protocol', {}).get('roc_auc', row.get('roc_auc', 'n/a'))} | "
-                         f"{row.get('matched_protocol', {}).get('ap', row.get('ap', 'n/a'))} |")
+                         f"{row.get('recall@0.010FPR')} | {atv1.get('roc_auc')} | {atv1.get('ap')} |")
     else:
         lines.append("(v1 rescore not yet available)")
     for s, row in eval_slices.items():
