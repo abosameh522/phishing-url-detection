@@ -45,5 +45,4 @@
 - v1 rescoring (background job writes `logs/v1_reproduce.log` and `results/v1_final_config.joblib`).
 
 
-## Follow-up command when ready:
-uv run python scripts/ingest_external.py
+## Resumability notes (if interrupted)
