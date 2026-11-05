@@ -19,11 +19,31 @@
 - **Common Crawl**: skipped for now (CDX reachable, CC-MAIN-2026-43 index exists; will be attempted in a later short stage if time permits — low priority for recall@1%FPR gain vs. cost).
 - No URLs were requested/opened. All strings-only.
 
-## Stage 2: Unified corpus - NEXT (build fresh from all present sources; write PROVENANCE.md, DATA_CARD.md, manifest.json, ARTIFACT_AUDIT.md)
+## Stage 2: Unified corpus - DONE (commit a369d4a)
 
-## Stage 3: Models - pending
+- `data/processed/urls_unified.parquet` rebuilt from all present sources: **1,828,468 rows**, 26 cols.
+- Splits (by registrable domain, zero train/eval overlap asserted): train_dev 514,868 / holdout 130,931 / validation 117,221 / calibration 101,142 / eval_sealed 188,454 / eval_fresh 766,350 / eval_tranco 9,502.
+- Class balance: 655,159 benign / 1,173,309 phishing.
+- `data/manifest.json` (per-source counts, drops, benchmark hash matches), `data/PROVENANCE.md`, `data/DATA_CARD.md`, `data/ARTIFACT_AUDIT.md` written.
+- **Artifact audit:** pooled grouped surface-only AUC **0.8673 before** → **0.3328 after** stratum reweighting (target ≤0.60 ✓). `sample_weight` column updated in the parquet (weights 0…1264.8).
+- `tests/hard_sanity_urls.csv` written: 192 legit (paths/queries on popular + hosted platforms) + 110 phishing strings from fresh feed snapshots (keywords stripped, no bare-IP trivia) = 302 rows. Strings only.
+- `docs/DECISIONS.md` D0–D8 logged. `DOWNLOAD_COMMANDS.md` written with exact retry commands (ealvaradob/PhiUSIIL/URL-Phish/Common Crawl).
+- Eval↔eval domain overlap (e.g. blogspot.lt in both LegitPhish and Phishing.Database) is documented as realistic shared-hosting overlap; leakage asserts apply only to train↔eval, which is empty ✓.
+
+## Stage 3: Models - IN PROGRESS
+
+- v1 reproduction script (`/tmp/v1_reproduce.py` → to be checked in as `scripts/v1_reproduce.py`) running in background: re-fits the legacy notebook pipeline (parse_url/get_features + HistGB + TextNgram blend w=0.7) on the new train pool, and re-scores it on eval_sealed/holdout under the new protocol.
+- Next after v1 finishes: train v2 candidates (LightGBM lexical, char-ngram TF-IDF linear, optional char-CNN, stack) under StratifiedGroupKFold(5, seed 42, by domain); pick by cross-source recall@1% FPR; calibrate; thresholds strict/balanced/sensitive.
+
 ## Stage 4: Evaluation - pending
 ## Stage 5: Gates, docs, git - pending
+
+## Resumability notes (if interrupted)
+
+- Corpus: `uv run python scripts/ingest_external.py && uv run python scripts/artifact_audit.py` (idempotent; ~4 min).
+- Hard sanity: `uv run python scripts/build_hard_sanity.py`.
+- v1 rescoring (background job writes `logs/v1_reproduce.log` and `results/v1_final_config.joblib`).
+
 
 ## Follow-up command when ready:
 uv run python scripts/ingest_external.py
