@@ -47,9 +47,10 @@ before_rows = ""
 if v1.get("new_protocol") and evalv2.get("slices"):
     before_rows = "| slice | model | rows | recall@1%FPR | ROC-AUC | AP |\n|---|---|---:|---:|---:|---:|\n"
     for s, row in v1["new_protocol"].items():
+        atv1 = row.get("at_v1_threshold") or {}
         before_rows += (f"| {s} | v1 (refit on same pool) | {fmt(row.get('rows'))} | "
-                        f"{fmt(row.get('recall@0.010FPR'))} | {fmt(row.get('matched_protocol', {}).get('roc_auc', row.get('roc_auc')))} | "
-                        f"{fmt((row.get('matched_protocol') or {}).get('ap', row.get('ap')))} |\n")
+                        f"{fmt(row.get('recall@0.010FPR'))} | {fmt(atv1.get('roc_auc'))} | "
+                        f"{fmt(atv1.get('ap'))} |\n")
     for s in ["eval_sealed", "eval_fresh", "holdout"]:
         row = evalv2["slices"].get(s) or (h if s == "holdout" else None)
         if not row:

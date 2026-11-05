@@ -266,9 +266,12 @@ def main():
     axes[1].set_title("reliability curve (calibration half B)")
     Path("results").mkdir(exist_ok=True)
     fig.tight_layout(); fig.savefig("results/calibration_diagnostics.png", dpi=120)
-    # per-source histograms (json-serial binned)
+    # per-source histograms (json-serial binned); calibrated scores for the FULL slice
+    eps_full = 1e-6
+    zFull = np.log(np.clip(p_cal_raw, eps_full, 1 - eps_full) / (1 - np.clip(p_cal_raw, eps_full, 1 - eps_full)))
+    cal_pol_full = 1 / (1 + np.exp(-(a * zFull + b)))
     per_source_hist = {}
-    for src, g in cal.assign(p=cal_pol, y=yca).groupby("source"):
+    for src, g in cal.assign(p=cal_pol_full, y=yca).groupby("source"):
         per_source_hist[src] = {"rows": int(len(g)),
                                 "phish": int(g.y.sum()),
                                 "mean_p_phish": float(g.loc[g.y == 1, "p"].mean()),
