@@ -1,7 +1,14 @@
-"""Faithful reproduction of v1 notebook pipeline (cells 3,14,16,29,32,58-66)."""
+"""Faithful reproduction + re-scoring of the v1 notebook pipeline with checkpointing.
+
+Re-fits the legacy pipeline (cells 3,14,16,29,32,58-66 of notebooks/legacy) on the new
+train pool, then re-scores it on eval_sealed/holdout under the new grouped protocol.
+Checkpoint file: results/v1_checkpoint.joblib (safe to delete to force a full re-fit).
+"""
+import json
 import re, math, ipaddress, time
 from collections import Counter
 from urllib.parse import urlsplit
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import tldextract
@@ -19,7 +26,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import joblib
 
 ext = tldextract.TLDExtract(suffix_list_urls=(), include_psl_private_domains=True)
+CK_PATH = Path("results/v1_checkpoint.joblib")
+ck = joblib.load(CK_PATH) if CK_PATH.exists() else {}
+def save_ck(): joblib.dump(ck, CK_PATH, compress=1)
 
+# --------------------------- v1 feature code (verbatim) ---------------------------
 def parse_url(url):
     tmp = url
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", url) and not url.startswith("//"):
@@ -35,13 +46,10 @@ words = ["login", "signin", "verify", "account", "password",
 
 def entropy(s):
     n = len(s)
-    if n == 0:
-        return 0
-    cnt = Counter(s)
-    val = 0
+    if n == 0: return 0
+    cnt = Counter(s); val = 0
     for v in cnt.values():
-        p = v / n
-        val -= p * math.log2(p)
+        p = v / n; val -= p * math.log2(p)
     return val
 
 def get_features(url):
@@ -49,82 +57,37 @@ def get_features(url):
     host = p.hostname or ""
     tmp = ext(host)
     text = re.sub(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", "", url)
-    if text.startswith("//"):
-        text = text[2:]
+    if text.startswith("//"): text = text[2:]
     n = len(text)
-    digits = 0
-    special = 0
-    for c in text:
-        if c in "0123456789":
-            digits += 1
-        if c in ".-/@?=&%_:+~#":
-            special += 1
-    low = text.lower()
-    path_low = p.path.lower()
-    cnt = 0
-    host_cnt = 0
-    path_cnt = 0
+    digits = sum(c in "0123456789" for c in text)
+    special = sum(c in ".-/@?=&%_:+~#" for c in text)
+    low = text.lower(); path_low = p.path.lower()
+    cnt = host_cnt = path_cnt = 0
     for word in words:
-        if word in low:
-            cnt += 1
-        if word in host:
-            host_cnt += 1
-        if word in path_low:
-            path_cnt += 1
-    sub = 0
-    if tmp.subdomain:
-        sub = len(tmp.subdomain.split("."))
-    depth = 0
-    for part in p.path.split("/"):
-        if part:
-            depth += 1
-    params = 0
-    for part in p.query.split("&"):
-        if part:
-            params += 1
-    is_ip = 0
-    try:
-        ipaddress.ip_address(host)
-        is_ip = 1
-    except ValueError:
-        pass
-    punycode = 0
-    for part in host.split("."):
-        if part.startswith("xn--"):
-            punycode = 1
-    return {
-        "url_length": n,
-        "domain_length": len(host),
-        "path_length": len(p.path),
-        "query_length": len(p.query),
-        "dot_count": text.count("."),
-        "digit_count": digits,
-        "hyphen_count": text.count("-"),
-        "at_count": text.count("@"),
-        "slash_count": text.count("/"),
-        "question_count": text.count("?"),
-        "equal_count": text.count("="),
-        "amp_count": text.count("&"),
-        "percent_count": text.count("%"),
-        "underscore_count": text.count("_"),
-        "special_count": special,
-        "subdomain_count": sub,
-        "host_digit_count": len(re.findall(r"[0-9]", host)),
-        "host_hyphen_count": host.count("-"),
-        "digit_ratio": digits / n,
-        "path_depth": depth,
-        "param_count": params,
-        "has_ip": is_ip,
-        "has_punycode": punycode,
-        "suspicious_count": cnt,
-        "host_suspicious_count": host_cnt,
-        "path_suspicious_count": path_cnt,
-        "host_entropy": entropy(host),
-        "tld": tmp.suffix,
-        "tld_length": len(tmp.suffix),
-        "scheme_known": int(bool(p.scheme)),
-        "has_https": int(p.scheme.lower() == "https"),
-    }
+        if word in low: cnt += 1
+        if word in host: host_cnt += 1
+        if word in path_low: path_cnt += 1
+    sub = len(tmp.subdomain.split(".")) if tmp.subdomain else 0
+    depth = sum(1 for part in p.path.split("/") if part)
+    params = sum(1 for part in p.query.split("&") if part)
+    try: ipaddress.ip_address(host); is_ip = 1
+    except ValueError: is_ip = 0
+    punycode = 1 if any(part.startswith("xn--") for part in host.split(".")) else 0
+    return {"url_length": n, "domain_length": len(host), "path_length": len(p.path),
+            "query_length": len(p.query), "dot_count": text.count("."),
+            "digit_count": digits, "hyphen_count": text.count("-"),
+            "at_count": text.count("@"), "slash_count": text.count("/"),
+            "question_count": text.count("?"), "equal_count": text.count("="),
+            "amp_count": text.count("&"), "percent_count": text.count("%"),
+            "underscore_count": text.count("_"), "special_count": special,
+            "subdomain_count": sub, "host_digit_count": len(re.findall(r"[0-9]", host)),
+            "host_hyphen_count": host.count("-"), "digit_ratio": digits / n,
+            "path_depth": depth, "param_count": params, "has_ip": is_ip,
+            "has_punycode": punycode, "suspicious_count": cnt,
+            "host_suspicious_count": host_cnt, "path_suspicious_count": path_cnt,
+            "host_entropy": entropy(host), "tld": tmp.suffix, "tld_length": len(tmp.suffix),
+            "scheme_known": int(bool(p.scheme)),
+            "has_https": int(p.scheme.lower() == "https")}
 
 def strip_scheme(s):
     s = re.sub(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", "", s)
@@ -132,170 +95,195 @@ def strip_scheme(s):
 
 def recall_at_fpr(y, p, target=0.05):
     fpr, tpr, thr = roc_curve(y, p)
-    i = np.where(fpr <= target)[0][-1]
+    i = np.where(fpr <= target)[0][-1] if (fpr <= target).any() else 0
     return tpr[i], fpr[i], thr[i]
 
 def make_preprocessor(scale=True):
     steps = [("imputer", SimpleImputer(strategy="median"))]
-    if scale:
-        steps.append(("scaler", StandardScaler()))
+    if scale: steps.append(("scaler", StandardScaler()))
     num_tf = Pipeline(steps=steps)
-    cat_tf = Pipeline(steps=[
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("encoder", OneHotEncoder(handle_unknown="infrequent_if_exist",
-                                  min_frequency=100,
-                                  sparse_output=False)),
-    ])
-    return ColumnTransformer(transformers=[
-        ("num", num_tf, numeric_features),
-        ("cat", cat_tf, categorical_features),
-    ])
+    cat_tf = Pipeline(steps=[("imputer", SimpleImputer(strategy="most_frequent")),
+                             ("encoder", OneHotEncoder(handle_unknown="infrequent_if_exist",
+                                                       min_frequency=100, sparse_output=False))])
+    return ColumnTransformer(transformers=[("num", num_tf, ck["feats"]["numeric"]),
+                                           ("cat", cat_tf, ck["feats"]["categorical"])])
 
+def target_recall(y, p, thr):
+    pred = (np.asarray(p) >= thr).astype(int)
+    tn, fp, fn, tp = confusion_matrix(y, pred).ravel()
+    return {"recall": tp / max(1, tp + fn), "fpr": fp / max(1, fp + tn),
+            "precision": precision_score(y, pred, zero_division=0),
+            "f1": f1_score(y, pred, zero_division=0),
+            "roc_auc": roc_auc_score(y, p), "ap": average_precision_score(y, p),
+            "tp": int(tp), "fp": int(fp), "fn": int(fn), "tn": int(tn)}
+
+# ------------------------------ main ------------------------------
 if __name__ == "__main__":
-    # Load training pool from the rebuilt corpus
     D = pd.read_parquet("data/processed/urls_unified.parquet")
-    train_pool = D[D.split_role.isin(["train_pool","train_dev","validation","calibration"])]
-    print("v1 training pool rows:", len(train_pool))
+    pool = D[D.split_role.isin(["train_dev", "validation", "calibration"])]
 
-    # Step 1: data['url'], 'label', 'domain' (domain = tldextract top_domain_under_public_suffix)
-    import tldextract as te2
-    ext2 = te2.TLDExtract(suffix_list_urls=(), include_psl_private_domains=True)
-    data = train_pool[["url_raw", "label"]].copy()
-    data["url"] = data["url_raw"]  # v1 column name
-    data["host"] = [parse_url(u).hostname or "" for u in data["url"]]
-    data = data[data["host"] != ""].copy()
-    data["domain"] = [ext2(h).top_domain_under_public_suffix or h for h in data["host"]]
-    data = data[["url","host","domain","label"]].reset_index(drop=True)
-    print("Clean rows:", len(data))
+    # ---- Stage A: v1-style prepared data + first-fold 80/20 grouped split ----
+    if "feats" not in ck:
+        data = pool[["url_raw", "label"]].copy()
+        data.columns = ["url", "label"]
+        data["host"] = [parse_url(u).hostname or "" for u in data["url"]]
+        data = data[data["host"] != ""].copy()
+        data["domain"] = [ext(h).top_domain_under_public_suffix or h for h in data["host"]]
+        data = data[["url", "host", "domain", "label"]].reset_index(drop=True)
+        print("v1 prepared rows:", len(data), flush=True)
 
-    # Step 2: 80/20 split via first fold of StratifiedGroupKFold
-    split = StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=42)
-    train_idx, test_idx = next(split.split(data, data["label"], groups=data["domain"]))
-    train_df = data.iloc[train_idx].reset_index(drop=True)
-    test_df = data.iloc[test_idx].reset_index(drop=True)
-    print("V1 split -> train:", len(train_df), "test:", len(test_df),
-          "domain overlap:", len(set(train_df["domain"]) & set(test_df["domain"])))
+        split = StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=42)
+        train_idx, test_idx = next(split.split(data, data["label"], groups=data["domain"]))
+        train_df = data.iloc[train_idx].reset_index(drop=True)
+        test_df = data.iloc[test_idx].reset_index(drop=True)
+        print("v1 split -> train:", len(train_df), "test:", len(test_df),
+              "domain overlap:", len(set(train_df.domain) & set(test_df.domain)), flush=True)
 
-    # Step 3: features
-    arr = [get_features(u) for u in train_df["url"]]
-    train_features = pd.DataFrame(arr, index=train_df.index)
-    arr = [get_features(u) for u in test_df["url"]]
-    test_features = pd.DataFrame(arr, index=test_df.index)
-    X_train = train_features.drop(columns=["scheme_known","has_https"])
-    X_test = test_features.drop(columns=["scheme_known","has_https"])
-    y_train = (train_df["label"] == "phishing").astype(int)
-    y_test = (test_df["label"] == "phishing").astype(int)
-    numeric_features = X_train.select_dtypes(include="number").columns.tolist()
-    categorical_features = X_train.select_dtypes(exclude="number").columns.tolist()
+        train_features = pd.DataFrame([get_features(u) for u in train_df["url"]])
+        test_features = pd.DataFrame([get_features(u) for u in test_df["url"]])
+        ck["feats"] = {
+            "train_url": train_df["url"].tolist(),
+            "test_url": test_df["url"].tolist(),
+            "train_domain": train_df["domain"].tolist(),
+            "X_train": train_features.drop(columns=["scheme_known", "has_https"]),
+            "X_test": test_features.drop(columns=["scheme_known", "has_https"]),
+            "y_train": (train_df["label"] == "phishing").astype(int).to_numpy(),
+            "y_test": (test_df["label"] == "phishing").astype(int).to_numpy(),
+            "numeric": train_features.drop(columns=["scheme_known", "has_https"]).select_dtypes(include="number").columns.tolist(),
+            "categorical": train_features.drop(columns=["scheme_known", "has_https"]).select_dtypes(exclude="number").columns.tolist(),
+        }
+        save_ck()
+    # rebuild context from checkpoint
+    X_train, X_test, y_train, y_test = ck["feats"]["X_train"], ck["feats"]["X_test"], ck["feats"]["y_train"], ck["feats"]["y_test"]
+    groups = np.array(ck["feats"]["train_domain"])
+    folds = list(StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=42).split(X_train, y_train, groups=groups))
+    print("checkpoint stage: feats ok", flush=True)
 
-    # Step 4: CV folds on the full training set (v1 computes OOF on all train)
-    groups = train_df["domain"].to_numpy()
-    cv = StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=42)
-    folds = list(cv.split(X_train, y_train, groups=groups))
+    # ---- Stage B: v1 OOF CV fits (Dummy, LogReg, HistGB, RF) ----
 
-    models = {"Dummy": Pipeline([("pre", make_preprocessor(scale=False)), ("clf", DummyClassifier(strategy="prior"))])}
-    oof = {}
-    results = []
-    for name, model in models.items():
-        oof_pred = np.zeros(len(X_train))
-        for k,(tr,va) in enumerate(folds):
-            model.fit(X_train.iloc[tr], y_train.iloc[tr])
-            oof_pred[va] = model.predict_proba(X_train.iloc[va])[:,1]
-        r,f,t = recall_at_fpr(y_train, oof_pred)
-        results.append({"model":name,"recall@5%FPR":round(r,4),"AP":round(average_precision_score(y_train,oof_pred),4),"ROC-AUC":round(roc_auc_score(y_train,oof_pred),4)})
-        oof[name]=oof_pred
-    print("OOF results:", results)
+    ck.setdefault("oof", {}); ck.setdefault("results", [])
+    oof = {k: np.asarray(v, dtype=np.float32) for k, v in ck["oof"].items()}
 
-    models["LogReg"]=Pipeline([("pre",make_preprocessor(scale=True)),("clf",LogisticRegression(max_iter=1000,class_weight="balanced"))])
-    models["HistGB"]=Pipeline([("pre",make_preprocessor(scale=False)),("clf",HistGradientBoostingClassifier(learning_rate=0.1,max_iter=150,random_state=42))])
-    models["RandomForest"]=Pipeline([("pre",make_preprocessor(scale=False)),("clf",RandomForestClassifier(n_estimators=200,min_samples_leaf=2,n_jobs=-1,random_state=42))])
-    for name, model in models.items():
-        if name in oof: continue
-        oof_pred = np.zeros(len(X_train))
-        for k,(tr,va) in enumerate(folds):
-            model.fit(X_train.iloc[tr], y_train.iloc[tr])
-            oof_pred[va] = model.predict_proba(X_train.iloc[va])[:,1]
-        r,f,t = recall_at_fpr(y_train, oof_pred)
-        results.append({"model":name,"recall@5%FPR":round(r,4),"AP":round(average_precision_score(y_train,oof_pred),4),"ROC-AUC":round(roc_auc_score(y_train,oof_pred),4),"seconds":round(time.time(),0)})
-        oof[name]=oof_pred
-    print("OOF results:", results)
+    def cv_fit(name, model):
+        t0 = time.time()
+        oof_pred = np.zeros(len(y_train), dtype=np.float32)
+        for k, (tr, va) in enumerate(folds):
+            model.fit(X_train.iloc[tr], y_train[tr])
+            oof_pred[va] = model.predict_proba(X_train.iloc[va])[:, 1]
+        r, f, t = recall_at_fpr(y_train, oof_pred)
+        res = {"model": name, "recall@5%FPR": round(float(r), 4),
+               "AP": round(float(average_precision_score(y_train, oof_pred)), 4),
+               "ROC-AUC": round(float(roc_auc_score(y_train, oof_pred)), 4),
+               "seconds": round(time.time() - t0, 1)}
+        oof[name] = oof_pred
+        ck["oof"][name] = oof_pred.tolist()
+        ck["results"] = [x for x in ck["results"] if x["model"] != name] + [res]
+        save_ck()
+        print("   ", res, flush=True)
 
-    # Text ngram
-    text_train = train_df["url"].map(strip_scheme).str.lower().reset_index(drop=True)
-    text_model = Pipeline([("tfidf", TfidfVectorizer(analyzer="char", ngram_range=(3,5), min_df=5, max_features=150000, sublinear_tf=True, dtype=np.float32)),
-                           ("clf", SGDClassifier(loss="log_loss", alpha=1e-6, max_iter=10, tol=None, random_state=42))])
-    oof_text = np.zeros(len(text_train))
-    for k,(tr,va) in enumerate(folds):
-        text_model.fit(text_train.iloc[tr], y_train.iloc[tr])
-        oof_text[va] = text_model.predict_proba(text_train.iloc[va])[:,1]
-    oof["TextNgram"]=oof_text
-    r,f,t = recall_at_fpr(y_train, oof_text)
-    print("TextNgram alone: recall@5%FPR=%.4f AP=%.4f AUC=%.4f" % (r,f,t))
+    MODELS = {
+        "Dummy": Pipeline([("pre", make_preprocessor(scale=False)), ("clf", DummyClassifier(strategy="prior"))]),
+        "LogReg": Pipeline([("pre", make_preprocessor(scale=True)), ("clf", LogisticRegression(max_iter=1000, class_weight="balanced"))]),
+        "HistGB": Pipeline([("pre", make_preprocessor(scale=False)), ("clf", HistGradientBoostingClassifier(learning_rate=0.1, max_iter=150, random_state=42))]),
+        "RandomForest": Pipeline([("pre", make_preprocessor(scale=False)), ("clf", RandomForestClassifier(n_estimators=200, min_samples_leaf=2, n_jobs=-1, random_state=42))]),
+    }
+    for name, model in MODELS.items():
+        if name not in oof:
+            print("[cv]", name, flush=True)
+            cv_fit(name, model)
+    print("checkpoint stage: oof ok", ck["results"], flush=True)
 
-    # Blend weight search
-    rows=[]
-    for w in [0.0,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]:
-        p=w*oof["TextNgram"]+(1-w)*oof["HistGB"]
-        rr,fr,tr_ = recall_at_fpr(y_train, p)
-        rows.append({"w_text":w,"recall@5%FPR":round(rr,4),"AP":round(average_precision_score(y_train,p),4),"ROC-AUC":round(roc_auc_score(y_train,p),4)})
-    import pandas as pd2
-    print(pd2.DataFrame(rows).set_index("w_text").to_string())
+    # ---- Stage C: TextNgram (char 3-5 TF-IDF + SGD) OOF ----
+    MODELS["text"] = Pipeline([
+        ("tfidf", TfidfVectorizer(analyzer="char", ngram_range=(3, 5), min_df=5,
+                                  max_features=150000, sublinear_tf=True, dtype=np.float32)),
+        ("clf", SGDClassifier(loss="log_loss", alpha=1e-6, max_iter=10, tol=None, random_state=42)),
+    ])
+    text_train = pd.Series(ck["feats"]["train_url"]).map(strip_scheme).str.lower()
+    if "TextNgram" not in oof:
+        print("[cv] TextNgram", flush=True)
+        tfidf = MODELS["text"].named_steps["tfidf"]; tfidf.fit(text_train)
+        Ztr_full = tfidf.transform(text_train)
+        del tfidf
+        text_sgd = MODELS["text"].named_steps["clf"]
+        oof_pred = np.zeros(len(y_train), dtype=np.float32)
+        for k, (tr, va) in enumerate(folds):
+            t0 = time.time()
+            sgd_k = SGDClassifier(loss="log_loss", alpha=1e-6, max_iter=10, tol=None, random_state=42)
+            sgd_k.fit(Ztr_full[tr], y_train[tr])
+            oof_pred[va] = sgd_k.predict_proba(Ztr_full[va])[:, 1]
+            print(f"    text fold {k} ({time.time()-t0:.0f}s)", flush=True)
+        r, f, t = recall_at_fpr(y_train, oof_pred)
+        res = {"model": "TextNgram", "recall@5%FPR": round(float(r), 4),
+               "AP": round(float(average_precision_score(y_train, oof_pred)), 4),
+               "ROC-AUC": round(float(roc_auc_score(y_train, oof_pred)), 4)}
+        oof["TextNgram"] = oof_pred
+        ck["oof"]["TextNgram"] = oof_pred.tolist()
+        ck["results"] = [x for x in ck["results"] if x["model"] != "TextNgram"] + [res]
+        save_ck()
+    else:
+        # rebuild tfidf vocabulary for the fit (vocab is data-derived; refit fast)
+        tfidf = MODELS["text"].named_steps["tfidf"]; tfidf.fit(text_train)
+        del tfidf
 
-    # Final v1: W_TEXT=0.7, threshold from recall@5%FPR
-    W_TEXT=0.7
-    p_val=W_TEXT*oof["TextNgram"]+(1-W_TEXT)*oof["HistGB"]
-    rec,fpr,thr_final=recall_at_fpr(y_train, p_val)
-    pred_val=(p_val>=thr_final).astype(int)
-    tn,fp,fn,tp=confusion_matrix(y_test if False else y_train, pred_val).ravel()
-    # Note: v1 final fit uses THRESHOLD on X_test in notebook cell 66 -> recompute p_test
-    print("\n=== v1 config ===")
-    print("W_TEXT:", W_TEXT, "threshold:", round(float(thr_final),6))
-    print("OOF train recall@5FPR:", round(rec,4), "FPR:", round(float(fpr),4))
-    print("OOF precision:", round(precision_score(y_train,pred_val),4), "F1:", round(f1_score(y_train,pred_val),4))
+    # blend sweep on OOF (self-consistent with v1 cells 63-65)
+    for w in [0.0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+        p = w * oof["TextNgram"] + (1 - w) * oof["HistGB"]
+        r, f, t = recall_at_fpr(y_train, p)
+        print(f"blend w_text={w}: recall@5%FPR={r:.4f} AP={average_precision_score(y_train, p):.4f} AUC={roc_auc_score(y_train, p):.4f}", flush=True)
 
-    # Reproduce cell 66 on test set (the notebook's actual final eval)
-    t0=time.time()
-    final_hgb=models["HistGB"]
-    final_hgb.fit(X_train, y_train)
-    text_test=test_df["url"].map(strip_scheme).str.lower().reset_index(drop=True)
-    final_text=text_model
-    final_text.fit(text_test if False else text_train, y_train)
-    p_hgb=final_hgb.predict_proba(X_test)[:,1]
-    p_text=final_text.predict_proba(text_test)[:,1]
-    p_test=W_TEXT*p_text+(1-W_TEXT)*p_hgb
-    pred=(p_test>=thr_final).astype(int)
-    tn,fp,fn,tp=confusion_matrix(y_test,pred).ravel()
-    print("\n=== v1 TEST RESULTS (cell 66) ===")
-    print(f"Recall    : {tp/(tp+fn):.4f}")
-    print(f"FPR       : {fp/(fp+tn):.4f}")
-    print(f"Precision : {precision_score(y_test,pred):.4f}")
-    print(f"F1        : {f1_score(y_test,pred):.4f}")
-    print(f"AP        : {average_precision_score(y_test,p_test):.4f}")
-    print(f"ROC-AUC   : {roc_auc_score(y_test,p_test):.4f}")
-    print(f"TP={tp} FP={fp} FN={fn} TN={tn}")
+    # ---- Stage D: v1 final config + fit (w_text=0.7, thr from OOF @5%FPR) ----
+    W_TEXT = 0.7
+    p_val = W_TEXT * oof["TextNgram"] + (1 - W_TEXT) * oof["HistGB"]
+    rec, fpr, thr_final = recall_at_fpr(y_train, p_val)
+    print(f"v1 config: W_TEXT={W_TEXT} threshold={thr_final:.6f} oof_recall@5%FPR={rec:.4f}", flush=True)
 
-    # v1 eval under the NEW protocol: on the rebuilt corpus eval slices
-    print("\n=== v1 re-scored under NEW protocol (domain-grouped CV) ===")
-    for split in ["eval_sealed","holdout"]:
-        sub=D[D.split_role==split]
-        if len(sub)==0: continue
-        feat=[get_features(u) for u in sub["url"]]
-        Xv=pd.DataFrame(feat).drop(columns=["scheme_known","has_https"])
-        xv=Xv.align(X_train,join="left",axis=1)[0].fillna(0)
-        p=final_hgb.predict_proba(xv)[:,1]
-        pt=final_text.predict_proba(sub["url"].map(strip_scheme).str.lower().reset_index(drop=True))[:,1]
-        pv=W_TEXT*pt+(1-W_TEXT)*p
-        y=(sub["label"]=="phishing").astype(int)
-        print(split, "rows:",len(sub), "phish:",int(y.sum()))
-        for mode,t in [("strict",0.987),("balanced",0.795),("sensitive",0.698)]:
-            pr=(pv>=t).astype(int)
-            tn,fp,fn,tp=confusion_matrix(y,pr).ravel()
-            print(f"  {mode} t={t:.3f} recall={tp/(tp+fn):.4f} fpr={fp/(fp+tn):.4f} prec={precision_score(y,pr):.4f}")
-        # recall at FPR
-        fr,fa,tf=recall_at_fpr(y,pv)
-        print(f"  recall@1%FPR={fr:.4f}  recall@0.1%FPR=", end="")
-        fr01,fa01,tf01=recall_at_fpr(y,pv,0.001)
-        print(f"{fr01:.4f}")
+    if "final" not in ck:
+        final_hgb = MODELS["HistGB"]; final_hgb.fit(X_train, y_train)
+        tfidf = TfidfVectorizer(analyzer="char", ngram_range=(3, 5), min_df=5,
+                                max_features=150000, sublinear_tf=True, dtype=np.float32)
+        text_fit = tfidf.fit_transform(text_train)
+        sgd_final = SGDClassifier(loss="log_loss", alpha=1e-6, max_iter=10, tol=None, random_state=42)
+        sgd_final.fit(text_fit, y_train)
+        ck["final"] = {"hgb": final_hgb, "tfidf": tfidf, "sgd": sgd_final,
+                       "w_text": W_TEXT, "threshold": float(thr_final)}
+        save_ck()
+        print("checkpoint stage: final ok", flush=True)
 
-    joblib.dump({"w_text":W_TEXT,"threshold":float(thr_final)}, "results/v1_final_config.joblib")
-    print("\nSaved results/v1_final_config.joblib")
+    hb = ck["final"]
+    # ---- Stage E: v1 on its own test (in-distribution, for reference) ----
+    Xte = X_test
+    ph = hb["hgb"].predict_proba(Xte)[:, 1]
+    text_test = pd.Series(ck["feats"]["test_url"]).map(strip_scheme).str.lower()
+    pt = hb["sgd"].predict_proba(hb["tfidf"].transform(text_test))[:, 1]
+    p_test = W_TEXT * pt + (1 - W_TEXT) * ph
+    ref = target_recall(y_test, p_test, hb["threshold"])
+    print("v1 own-test (in-distribution, thr=%.3f):" % hb["threshold"], {k: round(v, 4) if isinstance(v, float) else v for k, v in ref.items()}, flush=True)
+
+    # ---- Stage F: v1 re-scored under the NEW grouped protocol ----
+    out = {"reference_own_test": ref, "config": {"w_text": W_TEXT, "threshold": hb["threshold"]}, "oof_results": ck["results"]}
+    new_protocol = {}
+    for slice_name in ["eval_sealed", "holdout", "eval_tranco", "validation"]:
+        sub = D[D.split_role == slice_name]
+        if len(sub) == 0: continue
+        yv = (sub["label"] == "phishing").astype(int).to_numpy()
+        feat = pd.DataFrame([get_features(u) for u in sub["url_canonical"]])
+        Xv = feat.drop(columns=["scheme_known", "has_https"])
+        Xv = Xv.reindex(columns=X_train.columns, fill_value=0)
+        pv_h = hb["hgb"].predict_proba(Xv)[:, 1]
+        pv_t = hb["sgd"].predict_proba(hb["tfidf"].transform(sub["url_canonical"].str.lower().to_numpy()))[:, 1]
+        pv = W_TEXT * pv_t + (1 - W_TEXT) * pv_h
+        row = {"rows": int(len(sub)), "phish": int(yv.sum())}
+        # v1's own operating point
+        row["at_v1_threshold"] = target_recall(yv, pv, hb["threshold"])
+        # matched-protocol operating points: recall at fixed FPR targets
+        for t in [0.001, 0.01, 0.05]:
+            if len(np.unique(yv)) == 2:
+                r, f, th = recall_at_fpr(yv, pv, t)
+                row[f"recall@{t:.3f}FPR"] = float(r); row[f"fpr@{t:.3f}"] = float(f); row[f"thr@{t:.3f}"] = float(th)
+        new_protocol[slice_name] = row
+        print("[new-protocol]", slice_name, {k: (round(v, 4) if isinstance(v, float) else v) for k, v in row.items()}, flush=True)
+    out["new_protocol"] = new_protocol
+    Path("results").mkdir(exist_ok=True)
+    Path("results/v1_rescore.json").write_text(json.dumps({k: v for k, v in out.items()}, indent=2, default=str))
+    print("WROTE results/v1_rescore.json", flush=True)
