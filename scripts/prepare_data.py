@@ -6,8 +6,12 @@ sys.path.insert(0,'src')
 from phishing_url_detection.canonical import canonicalize, raw_flags
 from phishing_url_detection.features import registrable_domain
 ROOT=Path('.'); out=ROOT/'data/processed'; out.mkdir(parents=True,exist_ok=True)
+input_path=ROOT/'malicious_phish.csv'
+if not input_path.exists():
+    # A tiny checked-in smoke fixture keeps `make all` runnable from a clean clone.
+    input_path=ROOT/'data/raw/demo.csv'
 rows=[]; dropped={}; seen={}; conflicts=set()
-for i,rec in enumerate(csv.DictReader(open('malicious_phish.csv',encoding='utf-8',errors='replace',newline=''))):
+for i,rec in enumerate(csv.DictReader(open(input_path,encoding='utf-8',errors='replace',newline=''))):
     raw=(rec.get('url') or '').strip(); label=(rec.get('type') or '').strip().lower()
     if label not in ('benign','phishing'): dropped[label or 'missing_label']=dropped.get(label or 'missing_label',0)+1; continue
     try:
@@ -16,7 +20,7 @@ for i,rec in enumerate(csv.DictReader(open('malicious_phish.csv',encoding='utf-8
     except Exception: dropped['unparseable']=dropped.get('unparseable',0)+1; continue
     key=c; old=seen.get(key)
     if old and old['label']!=label: conflicts.add(key)
-    elif not old: seen[key]={'url_raw':raw,'url_canonical':c,'label':label,'source':'malicious_phish.csv','family':'kaggle_like','registrable_domain':reg,'host':c.split('/')[0],'date':'2017-01-01','brand_target':'','lang':'','license':'CC BY/unknown Kaggle mirror','sample_weight':1.0,**raw_flags(raw)}
+    elif not old: seen[key]={'url_raw':raw,'url_canonical':c,'label':label,'source':input_path.name,'family':'kaggle_like','registrable_domain':reg,'host':c.split('/')[0],'date':'2017-01-01','brand_target':'','lang':'','license':'CC BY/unknown Kaggle mirror','sample_weight':1.0,**raw_flags(raw)}
 for key in conflicts: seen.pop(key,None)
 for row in seen.values():
     h=int(hashlib.sha256(row['registrable_domain'].encode()).hexdigest()[:8],16)%100
@@ -27,7 +31,7 @@ df=pd.DataFrame(rows)
 # source placeholders are explicit and never silently presented as downloaded data
 for p in ['data/raw/fresh','data/raw/external']:
  Path(p).mkdir(parents=True,exist_ok=True)
-manifest={'created_at':datetime.now(timezone.utc).isoformat(),'sources_attempted':['malicious_phish.csv','PhreshPhish','ealvaradob/phishing-dataset','Common Crawl','Tranco','OpenPhish','PhishTank'],'sources_kept':{'malicious_phish.csv':len(df)},'sources_skipped':{'external_downloads':'not used without a verified local snapshot; see PROVENANCE.md'},'rows_kept':len(df),'rows_dropped':dropped,'conflicting_urls_removed':len(conflicts),'class_balance':df.label.value_counts().to_dict(),'registrable_domains':int(df.registrable_domain.nunique()),'split_counts':df.split_role.value_counts().to_dict()}
+manifest={'created_at':datetime.now(timezone.utc).isoformat(),'sources_attempted':['malicious_phish.csv','PhreshPhish','ealvaradob/phishing-dataset','Common Crawl','Tranco','OpenPhish','PhishTank'],'sources_kept':{input_path.name:len(df)},'sources_skipped':{'external_downloads':'not used without a verified local snapshot; see PROVENANCE.md'},'rows_kept':len(df),'rows_dropped':dropped,'conflicting_urls_removed':len(conflicts),'class_balance':df.label.value_counts().to_dict(),'registrable_domains':int(df.registrable_domain.nunique()),'split_counts':df.split_role.value_counts().to_dict()}
 df.to_parquet(out/'urls_unified.parquet',index=False)
 (out/'manifest.json').write_text(json.dumps(manifest,indent=2))
 # audit and spot check

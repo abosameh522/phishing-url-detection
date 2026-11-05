@@ -1064,7 +1064,7 @@ wheels = [
 [[package]]
 name = "phishing-url-detection"
 version = "2.0.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
