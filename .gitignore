@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .env
 *.joblib
+!results/model_bundle.joblib
 *.pkl
 *.onnx
 malicious_phish.csv
