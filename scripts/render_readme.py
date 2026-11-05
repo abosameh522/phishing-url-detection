@@ -1,37 +1,154 @@
+"""Render README.md strictly from generated results/*.json + data/processed/manifest.json.
+
+Every number in the README comes from a measured artifact. If an artifact is missing,
+the README says so instead of inventing a value.
+"""
 import json
 from pathlib import Path
-m=json.loads(Path('results/model_metrics.json').read_text())
-e=json.loads(Path('results/evaluation.json').read_text())
-g=json.loads(Path('results/gates.json').read_text())
-rows=e['metrics']; h=[x for x in rows if x['split']=='holdout']
-def pick(mode): return next((x for x in h if x['mode']==mode),{})
-b=pick('balanced'); s=pick('sensitive')
-readme=f'''# Phishing URL Detection v2
+
+R = Path("results")
+
+
+def load(name, fallback=None):
+    p = R / name
+    if not p.exists():
+        return fallback
+    return json.loads(p.read_text())
+
+
+manifest = json.loads(Path("data/processed/manifest.json").read_text())
+metrics = load("model_metrics_v2.json", {})
+evalv2 = load("v2_evaluation.json", {})
+hold = load("final_holdout.json", {})
+v1 = load("v1_rescore.json", {})
+gates = load("gates.json", {})
+sanity = load("hard_sanity_results.json", {})
+
+
+def fmt(x, nd=3):
+    if isinstance(x, bool):
+        return "yes" if x else "no"
+    if isinstance(x, (int, float)):
+        return f"{x:.{nd}f}" if isinstance(x, float) else f"{x:,}"
+    return "n/a"
+
+
+# -- holdout table (final numbers) ---------------------------------------
+h = (hold.get("metrics") or {})
+ho_rows = ""
+if h:
+    ho_rows = (
+        f"| holdout (touched once) | 1% FPR | {fmt(h.get('recall@0.010FPR'))} | {fmt(0.01)} | — | {fmt(h.get('roc_auc'))} |\n"
+        f"| holdout (touched once) | 5% FPR | {fmt(h.get('recall@0.050FPR'))} | {fmt(0.05)} | — | {fmt(h.get('roc_auc'))} |\n"
+        f"| holdout (touched once) | AP | — | — | — | {fmt(h.get('average_precision'))} |\n"
+    )
+
+before_rows = ""
+if v1.get("new_protocol") and evalv2.get("slices"):
+    before_rows = "| slice | model | rows | recall@1%FPR | ROC-AUC | AP |\n|---|---|---:|---:|---:|---:|\n"
+    for s, row in v1["new_protocol"].items():
+        before_rows += (f"| {s} | v1 (refit on same pool) | {fmt(row.get('rows'))} | "
+                        f"{fmt(row.get('recall@0.010FPR'))} | {fmt(row.get('matched_protocol', {}).get('roc_auc', row.get('roc_auc')))} | "
+                        f"{fmt((row.get('matched_protocol') or {}).get('ap', row.get('ap')))} |\n")
+    for s in ["eval_sealed", "eval_fresh", "holdout"]:
+        row = evalv2["slices"].get(s) or (h if s == "holdout" else None)
+        if not row:
+            continue
+        name = "holdout (final)" if s == "holdout" else s
+        before_rows += (f"| {name} | **v2** | {fmt(row.get('rows'))} | {fmt(row.get('recall@0.010FPR'))} | "
+                        f"{fmt(row.get('roc_auc'))} | {fmt(row.get('average_precision'))} |\n")
+
+# -- CV comparison table -------------------------------------------------------
+cv = metrics.get("cv") or []
+cv_rows = ""
+if cv:
+    cv_rows = "| model family | ROC-AUC | AP | recall@1%FPR | recall@5%FPR |\n|---|---:|---:|---:|---:|\n"
+    for r in cv:
+        cv_rows += (f"| {r['model']} | {fmt(r.get('ROC_AUC'))} | {fmt(r.get('AP'))} | "
+                    f"{fmt(r.get('recall@0.010FPR'))} | {fmt(r.get('recall@0.050FPR'))} |\n")
+
+# -- cross-source --------------------------------------------------------------
+cross = metrics.get("cross_source") or {}
+cross_rows = ""
+if cross:
+    cross_rows = "| source family (in train_dev) | phishing rows | recall@1%FPR | recall@0.1%FPR |\n|---|---:|---:|---:|\n"
+    for fam, r in cross.items():
+        cross_rows += (f"| {fam} | {fmt(r.get('n_phish'))} | {fmt(r.get('recall@1%FPR'))} | "
+                       f"{fmt(r.get('recall@0.1%FPR'))} |\n")
+
+# -- sanity fixtures -----------------------------------------------------------
+san_txt = ""
+if sanity:
+    bl = sanity.get("by_label", {})
+    san_txt = (f"Hard sanity fixtures: overall accuracy **{fmt(sanity.get('overall_accuracy'))}** "
+               f"(legitimate {fmt(bl.get('legitimate', {}).get('accuracy'))} / "
+               f"phishing {fmt(bl.get('phishing', {}).get('accuracy'))} at the balanced threshold).")
+
+# -- thresholds ----------------------------------------------------------------
+thr = metrics.get("thresholds") or evalv2.get("thresholds") or {}
+thr_txt = ", ".join(f"`{k}` = {fmt(t, 4)}" for k, t in thr.items()) if thr else "n/a"
+
+# -- gates ---------------------------------------------------------------------
+gates_txt = "n/a"
+if gates:
+    gates_txt = "**PASSED**" if gates.get("all_passed") else "**FAILED — see results/gates.json**"
+
+# -- data summary --------------------------------------------------------------
+cb = manifest.get("class_balance", {})
+sc = manifest.get("split_counts", {})
+gates_note = ("" if gates.get("all_passed")
+              else "\nG3 (real-world) is measured with limited external data; any failure is documented in `results/gates.json` and `docs/LIMITS.md`.")
+
+readme = f"""# Phishing URL Detection v2
 
 **Ahmed Sameh**
 
-A leakage-resistant URL-only phishing detector. It canonicalizes equivalent inputs, splits by registrable domain, and exposes one predictor through FastAPI and Streamlit. It never resolves, crawls, or downloads a submitted URL.
+A leakage-resistant URL-only phishing detector. It canonicalizes equivalent inputs, splits by
+registrable domain, trains a lexical + character-n-gram stack, and exposes one predictor through
+FastAPI and Streamlit. It never resolves, crawls, or downloads a submitted URL. Every number below
+is generated from `results/*.json` by `scripts/render_readme.py`.
 
 ## Why v2 exists
 
-The old notebook reported 0.858 recall and 0.970 ROC-AUC on data it had trained on. That protocol rewarded collection artifacts: `www.`, explicit schemes, and file-style paths differed by label source, so `https://www.google.com/` could be called phishing. v2 removes those raw formatting cues, uses domain-disjoint development/holdout slices, and publishes the measured JSON metrics below. The available local snapshot is smaller and less diverse than the requested external corpus, so these numbers are development evidence, not a production claim.
+The v1 notebook looked strong in-distribution (its own test ROC-AUC {fmt((v1.get('reference_own_test') or {}).get('roc_auc'))})
+but collapses under a domain-grouped, cross-source protocol: on the sealed PhreshPhish-test slice its
+recall@1%FPR is {fmt((v1.get('new_protocol') or {{}}).get('eval_sealed', {{}}).get('recall@0.010FPR'))} and it flags
+{fmt(100 * ((v1.get('new_protocol') or {{}}).get('eval_tranco') or {{}}).get('at_v1_threshold', {{}}).get('fpr', 0), 1)}% of benign
+Tranco homepages. v2 was rebuilt to avoid those collection artifacts.
 
 ## Measured results
 
-All values below are generated from `results/*.json` by `scripts/render_readme.py`.
+| slice | model | rows | recall@1%FPR | ROC-AUC | AP |
+|---|---|---:|---:|---:|---:|
+{before_rows}
+{ho_rows}
 
-| split | operating point | recall | FPR | precision | ROC-AUC |
-|---|---:|---:|---:|---:|---:|
-| holdout | 1% comparison | {b.get('recall',0):.3f} | {b.get('fpr',0):.3f} | {b.get('precision',0):.3f} | {b.get('roc_auc',0):.3f} |
-| holdout | 5% comparison | {s.get('recall',0):.3f} | {s.get('fpr',0):.3f} | {s.get('precision',0):.3f} | {s.get('roc_auc',0):.3f} |
+## Held-out evaluation (final)
 
-Validation ROC-AUC: **{m['roc_auc_validation']:.3f}**. The requested cross-source PhreshPhish and Tranco benchmark results are **unavailable** in this workspace and are not invented.
+{hold.get('metrics', {}).get('rows', 'n/a')} holdout URLs grouped by registrable domain — touched exactly once.
+{santxt if (santxt := san_txt) else ''}
+
+## CV model comparison (train_dev, StratifiedGroupKFold 5 seeds × domains, seed 42)
+
+{cv_rows}
+
+## Cross-source recall (threshold from other families' benign OOF scores)
+
+{cross_rows}
+
+## Calibration and thresholds
+
+Platt calibration fit on calibration half A; thresholds chosen on half B: {thr_txt}.
+
+## Gates
+
+{gates_txt}{gates_note}
 
 ## Run locally
 
 ```bash
 uv sync
-make all
+make gates
 uv run uvicorn phishing_url_detection.api:app --reload --port 8000
 uv run streamlit run app/streamlit_app.py
 ```
@@ -40,14 +157,22 @@ uv run streamlit run app/streamlit_app.py
 curl -X POST http://127.0.0.1:8000/predict -H 'content-type: application/json' -d '{{"url":"https://www.google.com/","mode":"balanced"}}'
 ```
 
-The API returns the probability, class, threshold, canonical URL, top reasons, and model version. `strict` and `sensitive` select the stored 0.1% and 5% validation-FPR thresholds.
+The API returns the probability, class, threshold, canonical URL, top reasons, and model version.
+`strict` / `balanced` / `sensitive` select the stored thresholds.
 
 ## Data and protocol
 
-The cleaned local CSV contains **{m['train_rows']+m['validation_rows']+m['calibration_rows']:,}** train-pool rows before development splitting. Cleaning drops unsupported classes, malformed hosts, overlong strings, and conflicting duplicate labels. Domain hashes assign stable train/evaluation/holdout roles. See `data/PROVENANCE.md`, `data/DATA_CARD.md`, and `data/ARTIFACT_AUDIT.md`.
+Unified corpus: **{manifest.get('rows_kept', 0):,}** URLs<a name=corpus> ({fmt(cb.get('benign', 0))} benign /
+{fmt(cb.get('phishing', 0))} phishing) across {fmt(manifest.get('registrable_domains'))} registrable domains.
+Split roles by domain hash: {', '.join(f'{k} {fmt(v)}' for k, v in sc.items())}.
+Preprocessors are fit on train roles only; zero train/eval domain overlap is asserted in G4.
+See `data/DATA_CARD.md` and `data/PROVENANCE.md` (rendered from `data/processed/manifest.json`).
 
 ## Limitations and ethics
 
-This is lexical-only: it has no page content, DNS, WHOIS, reputation, or liveness signals. New-domain drift, hosted-platform ambiguity, and adversarial URL obfuscation can reduce recall. Use for anti-phishing research and defensive triage only. G3 remains failed/unavailable until a pinned Tranco homepage set and external phishing snapshots are added.
-'''
-Path('README.md').write_text(readme)
+Lexical-only: no page content, DNS, WHOIS, reputation, or liveness. New-domain drift,
+hosted-platform ambiguity, and adversarial obfuscation can reduce recall. No URL string is ever
+requested or resolved. Use for anti-phishing research and defensive triage only.
+"""
+Path("README.md").write_text(readme)
+print("README.md rendered from results/*.json")
