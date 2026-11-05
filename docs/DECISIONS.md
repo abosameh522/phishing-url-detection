@@ -35,3 +35,8 @@
 
 ## D8 — Gates
 - G3 (Tranco FPR ≤2% + cross-source recall > v1) must run against the live Tranco top-10k homepage file; v1 re-scored from notebook cells via nbformat.
+
+## D9 — Char-CNN skipped (optional per spec)
+- `torch` is not installed in the project venv and installing it (≈2 GB CUDA wheel) risks heavy RAM/network cost for unclear marginal benefit. Lexical LGBM + char-ngram TF-IDF linear + their stack cover the spec's model families.
+- The CNN remains optional future work; if it is ever added it must follow the same grouped protocol. Logged in `results/model_metrics_v2.json` as `optional_char_cnn`.
+
