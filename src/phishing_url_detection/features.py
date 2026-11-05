@@ -4,14 +4,16 @@ from urllib.parse import urlsplit
 import tldextract
 import numpy as np
 from .canonical import canonicalize
+_TLD = tldextract.TLDExtract(suffix_list_urls=(), include_psl_private_domains=True)
 
 BRANDS = ("paypal","apple","microsoft","google","amazon","facebook","instagram","linkedin","netflix","coinbase","bank","docusign","dropbox","office365","outlook","icloud","steam","github","binance")
 SUSPICIOUS = ("login","verify","secure","account","update","signin","confirm","wallet","password","credential","billing","unlock","recover","authenticate","webscr")
 
 def _parts(u):
-    c=canonicalize(u); p=urlsplit(c if '://' in c else '//'+c); host=p.hostname or ''; ex=tldextract.extract(host); reg='.'.join(x for x in (ex.domain,ex.suffix) if x); return c,p,host,ex,reg
+    c=canonicalize(u); p=urlsplit(c if '://' in c else '//'+c); host=p.hostname or ''; ex=_TLD(host); reg='.'.join(x for x in (ex.domain,ex.suffix) if x); return c,p,host,ex,reg
 
 def registrable_domain(u): return _parts(u)[4]
+def tld_values(urls): return [(_parts(u)[3].suffix or 'unknown').lower() for u in urls]
 
 def feature_names(): return ["url_length","host_length","path_length","query_length","num_dots","num_hyphens","num_digits","digit_ratio","special_ratio","entropy","subdomain_count","path_depth","param_count","has_ip","has_punycode","host_keyword_count","path_keyword_count","brand_host_count","brand_path_count","typo_brand_distance","host_digit_ratio","host_hyphen_density","has_at","percent_ratio","longest_alpha_run","vowel_consonant_ratio","class_transitions","is_shortener"]
 

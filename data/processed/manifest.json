@@ -1,36 +1,102 @@
 {
-  "created_at": "2026-11-05T00:51:10.126182+00:00",
+  "created_at": "2026-11-05T02:03:47.260251+00:00",
   "sources_attempted": [
     "malicious_phish.csv",
     "PhreshPhish",
     "ealvaradob/phishing-dataset",
-    "Common Crawl",
-    "Tranco",
+    "MURL",
+    "PhishBD_2026",
+    "PhiUSIIL",
+    "URL-Phish",
+    "LegitPhish",
+    "Tranco JZPGY",
     "OpenPhish",
-    "PhishTank"
+    "Phishing.Database",
+    "Common Crawl"
   ],
   "sources_kept": {
-    "malicious_phish.csv": 510639
+    "malicious_phish.csv": 522214,
+    "PhreshPhish train": 276729,
+    "PhreshPhish test": 91260,
+    "MURL": 783702,
+    "PhishBD_2026": 131167,
+    "LegitPhish": 100873,
+    "Tranco JZPGY top10k": 10000,
+    "OpenPhish": 300,
+    "Phishing.Database": 789054,
+    "conflicting_urls_removed": 6006
   },
   "sources_skipped": {
-    "external_downloads": "not used without a verified local snapshot; see PROVENANCE.md"
+    "ealvaradob/phishing-dataset": "repo/URLs resolve 404 (unavailable); see docs/DECISIONS.md D0",
+    "MURL": "ingested",
+    "PhishBD_2026": "ingested",
+    "PhiUSIIL": "repo not found (404)",
+    "URL-Phish": "repo not found (404)",
+    "LegitPhish": "ingested",
+    "Common Crawl": "CDX query deferred - not downloaded in this run"
   },
-  "rows_kept": 510639,
+  "rows_kept": 1828468,
   "rows_dropped": {
-    "defacement": 96457,
-    "malware": 32520,
-    "unparseable": 1296
+    "malicious_phish.csv:unparseable": 1296,
+    "unsupported_label": 298326,
+    "MURL:unparseable": 2854,
+    "PhishBD_2026:unparseable": 82,
+    "Phishing.Database:unparseable": 5147,
+    "training_rows_removed_for_eval_domain_overlap": 521241
   },
-  "conflicting_urls_removed": 4041,
+  "conflicting_urls_removed": 6006,
   "class_balance": {
-    "benign": 422602,
-    "phishing": 88037
+    "phishing": 1173309,
+    "benign": 655159
   },
-  "registrable_domains": 145328,
+  "registrable_domains": 807546,
   "split_counts": {
-    "train_pool": 430205,
-    "eval_sanity": 31472,
-    "holdout": 29251,
-    "eval_sealed": 19711
-  }
+    "eval_fresh": 766350,
+    "train_dev": 514868,
+    "eval_sealed": 188454,
+    "holdout": 130931,
+    "validation": 117221,
+    "calibration": 101142,
+    "eval_tranco": 9502
+  },
+  "reserved_eval_domains": 432807,
+  "phresh_columns_read": [
+    "url",
+    "label",
+    "target",
+    "date",
+    "lang"
+  ],
+  "phresh_html_loaded": false,
+  "phresh_benchmark_file_summary": {
+    "benchmark-005": {
+      "hashes": 26370,
+      "matched_to_test_urls": 0,
+      "base_rate_label": "005"
+    },
+    "benchmark-010": {
+      "hashes": 26640,
+      "matched_to_test_urls": 0,
+      "base_rate_label": "010"
+    },
+    "benchmark-050": {
+      "hashes": 26727,
+      "matched_to_test_urls": 0,
+      "base_rate_label": "050"
+    },
+    "benchmark-100": {
+      "hashes": 26419,
+      "matched_to_test_urls": 0,
+      "base_rate_label": "100"
+    },
+    "benchmark-500": {
+      "hashes": 23755,
+      "matched_to_test_urls": 0,
+      "base_rate_label": "500"
+    }
+  },
+  "tranco_list_id": "JZPGY",
+  "tranco_created_on": "2026-11-04",
+  "no_url_requests": true,
+  "split_by": "registrable_domain (tldextract, private suffixes)"
 }

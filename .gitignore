@@ -9,7 +9,9 @@ __pycache__/
 *.onnx
 malicious_phish.csv
 data/raw/
+data/external/
 !data/raw/
+data/external/
 !data/raw/demo.csv
 data/processed/*.parquet
 *.csv

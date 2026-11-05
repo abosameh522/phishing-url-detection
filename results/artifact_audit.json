@@ -1,0 +1,22 @@
+{
+  "pooled_auc_before": 0.8672717668601464,
+  "pooled_auc_after": 0.3328141385664045,
+  "per_source_auc": {
+    "MURL": {
+      "before": 0.6807509023736,
+      "after": 0.3789591435515379
+    },
+    "PhishBD_2026": {
+      "before": 0.6216631699089357,
+      "after": 0.46291693059853584
+    },
+    "PhreshPhish train": null,
+    "malicious_phish.csv": {
+      "before": 0.9221054749402411,
+      "after": 0.12665503244444792
+    }
+  },
+  "common_strata": 150,
+  "weight_min": 0.0,
+  "weight_max": 1264.759521484375
+}
