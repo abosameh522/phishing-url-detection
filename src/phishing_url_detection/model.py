@@ -25,15 +25,23 @@ class URLModel:
             x=hstack([csr_matrix(x),t],format='csr')
         return float(model.predict_proba(x)[0,1])
     def predict(self,url,mode='balanced'):
+        if mode not in self.bundle.get('thresholds', {}):
+            mode = 'balanced'
         c=canonicalize(url); x=featurize([c])
         raw=float(self._raw(c,x))
         p=float(_calibrate([raw],self.bundle.get('calibration',{}))[0])
         thresholds=self.bundle['thresholds']; t=float(thresholds.get(mode,thresholds['balanced']))
+        flagged = p >= t
         rs=reasons(c,self.bundle)
-        if p>=t:
-            rs=[r for r in rs if 'no strong lexical warning signal' not in r]
+        # Heuristic explanations can be empty or disagree with a learned score.
+        # Never present an empty explanation or a contradictory reassurance.
+        if flagged:
             if not rs:
-                rs=[f"stacked model probability {p:.3f} exceeds the {mode} threshold {t:.3f}"]
-        return {'probability':round(p,6),'class':'phishing' if p>=t else 'legitimate','mode':mode,'threshold':t,'canonical_url':c,'reasons':rs,'model_version':self.bundle.get('version','2.0.0')}
+                rs=[f"model score {p:.3f} exceeds the {mode} review threshold {t:.3f}"]
+        else:
+            rs = [r for r in rs if not r.startswith('character pattern ')]
+            if not rs:
+                rs=[f"model score {p:.3f} is below the {mode} review threshold {t:.3f}"]
+        return {'risk_score':round(p,6),'score_type':'calibrated lexical risk score (not a real-world probability)','class':'phishing' if flagged else 'legitimate','mode':mode,'threshold':t,'canonical_url':c,'reasons':rs,'model_version':self.bundle.get('version','2.0.0'),'disclaimer':'Lexical URL assessment only. A low score does not prove a URL is safe; verify suspicious links with a trusted security service.'}
 
 def load(path='results/model_bundle.joblib'): return URLModel(joblib.load(path))

@@ -35,10 +35,11 @@ def _eval_score_batch_fn():
     import ast, numpy as np, sys
     sys.path.insert(0, "src")
     from phishing_url_detection.features import featurize
+    from phishing_url_detection.canonical import canonicalize
     src = ast.parse(open("scripts/evaluate_v2.py").read())
     fn = next(n for n in ast.walk(src)
               if isinstance(n, ast.FunctionDef) and n.name == "score_batch")
-    ns = {"featurize": featurize, "np": np}
+    ns = {"featurize": featurize, "canonicalize": canonicalize, "np": np}
     exec(compile(ast.Module(body=[ast.fix_missing_locations(fn)], type_ignores=[]),
                  "<score_batch>", "exec"), ns)
     return ns["score_batch"]
@@ -68,7 +69,32 @@ def test_serve_eval_parity_within_1e6():
     pool = D.loc[D.split_role.isin(["eval_tranco", "eval_fresh"]), "url_canonical"]
     sample = list(probe) + pool.drop_duplicates().sample(20, random_state=42).tolist()
 
-    api_p = np.array([p.predict(u)["probability"] for u in sample])
+    api_p = np.array([p.predict(u)["risk_score"] for u in sample])
     eval_p = np.asarray(score_batch(b, sample))
     assert np.abs(api_p - eval_p).max() <= 1e-6
-EOF
+
+
+def test_invalid_mode_falls_back_to_balanced_and_output_is_explicit():
+    from phishing_url_detection.model import load
+    predictor = load()
+    normal = predictor.predict('example.com', mode='balanced')
+    invalid = predictor.predict('example.com', mode='typo')
+    assert invalid['mode'] == 'balanced'
+    assert invalid['risk_score'] == normal['risk_score']
+    assert 'not a real-world probability' in invalid['score_type']
+    assert invalid['class'] == normal['class']
+    assert invalid['disclaimer']
+    assert invalid['reasons']
+
+
+def test_eval_score_canonicalizes_before_scoring():
+    import joblib
+    from pathlib import Path
+    bundle_p = Path('results/model_bundle.joblib')
+    if not bundle_p.exists():
+        import pytest
+        pytest.skip('model bundle missing')
+    b = joblib.load(bundle_p)
+    score_batch = _eval_score_batch_fn()
+    p = score_batch(b, ['https://www.google.com/', 'google.com'])
+    assert abs(float(p[0]) - float(p[1])) <= 1e-6

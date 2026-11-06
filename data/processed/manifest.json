@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-11-05T03:13:07.271485+00:00",
+  "created_at": "2026-11-05T16:34:43.510783+00:00",
   "sources_attempted": [
     "malicious_phish.csv",
     "PhreshPhish",
@@ -22,6 +22,9 @@
     "PhishBD_2026": 131167,
     "LegitPhish": 100873,
     "Tranco JZPGY top10k": 10000,
+    "Tranco partition A (train)": 7094,
+    "Tranco partition B (sealed eval)": 2906,
+    "Common Crawl CDX": 1957,
     "OpenPhish": 300,
     "Phishing.Database": 789054,
     "conflicting_urls_removed": 5461
@@ -35,32 +38,33 @@
     "LegitPhish": "ingested",
     "Common Crawl": "CDX query deferred - not downloaded in this run"
   },
-  "rows_kept": 2013066,
+  "rows_kept": 2044164,
   "rows_dropped": {
     "malicious_phish.csv:unparseable": 1296,
     "PhreshPhish train:unparseable": 351,
     "PhreshPhish test:unparseable": 1065,
     "MURL:unparseable": 2854,
     "PhishBD_2026:unparseable": 82,
+    "Common Crawl CDX:unparseable": 103,
     "Phishing.Database:unparseable": 5147,
-    "training_rows_removed_for_eval_domain_overlap": 595346
+    "training_rows_removed_for_eval_domain_overlap": 566102
   },
   "conflicting_urls_removed": 5461,
   "class_balance": {
-    "phishing": 1382270,
-    "benign": 630796
+    "phishing": 1387306,
+    "benign": 656858
   },
-  "registrable_domains": 918237,
+  "registrable_domains": 918238,
   "split_counts": {
     "eval_fresh": 766316,
-    "train_dev": 580772,
+    "train_dev": 604371,
     "eval_sealed": 263221,
-    "holdout": 147561,
-    "validation": 131135,
-    "calibration": 114574,
-    "eval_tranco": 9487
+    "holdout": 154963,
+    "validation": 135148,
+    "calibration": 117379,
+    "eval_tranco": 2766
   },
-  "reserved_eval_domains": 467548,
+  "reserved_eval_domains": 462675,
   "phresh_columns_read": [
     "url",
     "label",
@@ -98,6 +102,12 @@
   },
   "tranco_list_id": "JZPGY",
   "tranco_created_on": "2026-11-04",
+  "tranco_partition": {
+    "rule": "sha256(registrable_domain)%10 < 7 -> partition A (training benign negatives); >= 7 -> partition B (sealed eval_tranco)",
+    "train_domains": 7094,
+    "eval_domains": 2906,
+    "note": "Tranco is training negatives ONLY on partition A; rank/order is never a feature"
+  },
   "no_url_requests": true,
   "split_by": "registrable_domain (tldextract, private suffixes)"
 }

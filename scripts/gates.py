@@ -119,7 +119,7 @@ if model_ok and probe_path.exists():
                 continue
             if r["label"] == "legitimate":
                 probe_report.setdefault("legit_misses", []).append(
-                    {"url": r["url"], "probability": out["probability"], "class": out["class"]})
+                    {"url": r["url"], "risk_score": out["risk_score"], "class": out["class"]})
         legit_acc = outcomes["legitimate"]["correct"] / sum(outcomes["legitimate"].values())
         phish_rec = outcomes["phishing"]["correct"] / sum(outcomes["phishing"].values())
         # probe phishing recall is informational ONLY (30 strings is not a skill estimate)

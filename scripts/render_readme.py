@@ -139,7 +139,7 @@ Tranco homepages. v2 was rebuilt to avoid those collection artifacts.
 
 ## Calibration and thresholds
 
-Platt calibration fit on calibration half A; thresholds chosen on half B: {thr_txt}.
+Platt risk-score mapping fit on calibration half A; thresholds chosen on half B: {thr_txt}. Scores are calibrated to this corpus mix, not real-world prevalence, and are not deployment probabilities.
 
 ## Gates
 
@@ -158,7 +158,7 @@ uv run streamlit run app/streamlit_app.py
 curl -X POST http://127.0.0.1:8000/predict -H 'content-type: application/json' -d '{{"url":"https://www.google.com/","mode":"balanced"}}'
 ```
 
-The API returns the probability, class, threshold, canonical URL, top reasons, and model version.
+The API returns a calibrated lexical risk score (not a real-world probability), class, threshold, canonical URL, reasons, and model version.
 `strict` / `balanced` / `sensitive` select the stored thresholds.
 
 ## Data and protocol

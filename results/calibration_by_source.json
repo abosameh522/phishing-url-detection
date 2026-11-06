@@ -1,34 +1,50 @@
 {
+  "Common Crawl CDX": {
+    "rows": 59,
+    "phish": 0,
+    "mean_p_phish": NaN,
+    "mean_p_benign": 0.6055149335673085,
+    "p95_benign": 0.9229441152644867,
+    "p05_phish": NaN
+  },
   "MURL": {
-    "rows": 39681,
-    "phish": 27624,
-    "mean_p_phish": 0.8210801883200074,
-    "mean_p_benign": 0.14120294582121423,
-    "p95_benign": 0.7143647532992933,
-    "p05_phish": 0.20397339997673258
+    "rows": 40538,
+    "phish": 27711,
+    "mean_p_phish": 0.8186514395626073,
+    "mean_p_benign": 0.13686857404203742,
+    "p95_benign": 0.6940949930329965,
+    "p05_phish": 0.19545811696403026
   },
   "PhishBD_2026": {
-    "rows": 13276,
+    "rows": 13608,
     "phish": 9772,
-    "mean_p_phish": 0.8741933355836878,
-    "mean_p_benign": 0.4108318534818017,
-    "p95_benign": 0.9016218899480083,
-    "p05_phish": 0.34701918064611753
+    "mean_p_phish": 0.8677735411309032,
+    "mean_p_benign": 0.38803739164462747,
+    "p95_benign": 0.8963135369778503,
+    "p05_phish": 0.32925590525507614
   },
   "PhreshPhish train": {
-    "rows": 25892,
-    "phish": 13788,
-    "mean_p_phish": 0.9174875961864253,
-    "mean_p_benign": 0.19816623126990204,
-    "p95_benign": 0.7205300925956213,
-    "p05_phish": 0.49696985283984624
+    "rows": 26045,
+    "phish": 13812,
+    "mean_p_phish": 0.9141952972565237,
+    "mean_p_benign": 0.1942151158545742,
+    "p95_benign": 0.7193919868147376,
+    "p05_phish": 0.46121493087725657
+  },
+  "Tranco JZPGY top10k": {
+    "rows": 96,
+    "phish": 0,
+    "mean_p_phish": NaN,
+    "mean_p_benign": 0.3656877395802323,
+    "p95_benign": 0.845244490279533,
+    "p05_phish": NaN
   },
   "malicious_phish.csv": {
-    "rows": 35725,
-    "phish": 7430,
-    "mean_p_phish": 0.6476901931787105,
-    "mean_p_benign": 0.16849314324555356,
-    "p95_benign": 0.7142594538214083,
-    "p05_phish": 0.12542543411034604
+    "rows": 37033,
+    "phish": 7542,
+    "mean_p_phish": 0.6458927581517271,
+    "mean_p_benign": 0.16336817709309695,
+    "p95_benign": 0.7023187028627766,
+    "p05_phish": 0.11969398105068216
   }
 }

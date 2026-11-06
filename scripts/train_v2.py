@@ -114,12 +114,18 @@ def main():
     cv_rows = []
     skf = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED)
     folds = list(skf.split(Xtr, ytr, groups=groups))
+    data_fingerprint = hashlib.sha256(
+        ("|".join(trn.url_canonical.astype(str)) + "|" + "|".join(trn.label.astype(str))
+         + "|" + "|".join(trn.registrable_domain.astype(str))).encode()
+    ).hexdigest()[:16]
+    cv_probs = {}
     for name in ["lgbm", "lgbm_light"]:
-        cache = Path(f"results/cv_probs_{name}.npy")
+        cache = Path(f"results/cv_probs_{name}_{data_fingerprint}.npy")
         if cache.exists():
-            probs = np.frombuffer(cache.read_bytes(), dtype=np.float32)
+            probs = np.load(cache)
             print(f"[cv] {name} loaded from cache", flush=True)
             cv_rows.append({"model": name, **bench_scores(ytr, probs)})
+            cv_probs[name] = probs
             continue
         probs = np.zeros(len(ytr), dtype=np.float32)
         for k, (i1, i2) in enumerate(folds):
@@ -128,7 +134,8 @@ def main():
             print(f"[cv] {name} fold {k} done", flush=True)
         sc = bench_scores(ytr, probs)
         cv_rows.append({"model": name, **sc})
-        cache.write_bytes(probs.tobytes())
+        np.save(cache, probs)
+        cv_probs[name] = probs
         print("[cv]", name, sc, flush=True)
 
     # ---------- B) char-ngram TF-IDF linear (+ stack) on the same folds ----------
@@ -141,9 +148,9 @@ def main():
     # linear baseline as a second family, on the same folds
     lr = SGDClassifier(loss="log_loss", alpha=1e-6, max_iter=8, tol=None,
                        n_jobs=2, random_state=SEED)
-    cache_lin = Path("results/cv_probs_tfidf_char_linear.npy")
+    cache_lin = Path(f"results/cv_probs_tfidf_char_linear_{data_fingerprint}.npy")
     if cache_lin.exists():
-        probs_lin = np.frombuffer(cache_lin.read_bytes(), dtype=np.float32)
+        probs_lin = np.load(cache_lin)
         print("[cv] tfidf_char_linear loaded from cache", flush=True)
         cv_rows.append({"model": "tfidf_char_linear", **bench_scores(ytr, probs_lin)})
     else:
@@ -154,12 +161,12 @@ def main():
             print(f"[cv] tfidf-linear fold {k} done", flush=True)
         sc = bench_scores(ytr, probs_lin)
         cv_rows.append({"model": "tfidf_char_linear", **sc})
-        cache_lin.write_bytes(probs_lin.tobytes())
+        np.save(cache_lin, probs_lin)
         print("[cv] tfidf_char_linear", sc, flush=True)
 
     # stack of lgbm + tfidf-linear with equal weights inside CV
     for w in [0.3, 0.5, 0.7]:
-        p = w * probs_lin + (1 - w) * probs
+        p = w * probs_lin + (1 - w) * cv_probs["lgbm"]
         sc = bench_scores(ytr, p)
         cv_rows.append({"model": f"stack(w_text={w})", **sc})
     Path("results/cv_comparison.json").write_text(json.dumps(cv_rows, indent=2))
@@ -171,7 +178,7 @@ def main():
     # held-in benign rows at 1% FPR.
     fams = sorted(trn.family.unique())
     cross = {}
-    probs_lgbm = np.frombuffer(Path("results/cv_probs_lgbm.npy").read_bytes(), dtype=np.float32)
+    probs_lgbm = cv_probs["lgbm"]
     for f in fams:
         idx_f = np.where(trn.family.to_numpy() == f)[0]
         # threshold from other-family benign OOF scores
@@ -238,10 +245,19 @@ def main():
     cal_pa = 1 / (1 + np.exp(-(a * zA + b)))
     zB = np.log(np.clip(calB, eps, 1 - eps) / (1 - np.clip(calB, eps, 1 - eps)))
     cal_pol = 1 / (1 + np.exp(-(a * zB + b)))  # calibrated scores on half B (array)
+    def expected_calibration_error(y, p, bins=10):
+        order = np.argsort(p, kind="stable")
+        chunks = np.array_split(order, min(bins, len(order)))
+        return float(sum(len(ix) / len(y) * abs(float(np.mean(p[ix])) - float(np.mean(y[ix])))
+                         for ix in chunks if len(ix)))
     cal_stats = {"a": a, "b": b, "halfA_rows": int(calA.shape[0]),
-                 "halfA_ece": float(np.mean(np.abs(cal_pa - (yA.mean() * np.ones_like(yA)))) if True else 0),
+                 "halfA_ece_quantile10": expected_calibration_error(yA, cal_pa),
+                 "halfA_brier": float(np.mean((cal_pa - yA) ** 2)),
                  "halfA_auc": float(roc_auc_score(yA, cal_pa)) if yA.sum() and (yA == 0).sum() else None,
-                 "halfB_auc": float(roc_auc_score(yB, cal_pol)) if yB.sum() and (yB == 0).sum() else None}
+                 "halfB_ece_quantile10": expected_calibration_error(yB, cal_pol),
+                 "halfB_brier": float(np.mean((cal_pol - yB) ** 2)),
+                 "halfB_auc": float(roc_auc_score(yB, cal_pol)) if yB.sum() and (yB == 0).sum() else None,
+                 "note": "Calibration is measured against this corpus prevalence; scores are not deployment probabilities."}
 
     # thresholds on calB at empirical FPR targets
     def thr_at(y, p, target):
@@ -258,12 +274,12 @@ def main():
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
     for lbl, sel in [("benign", yB == 0), ("phishing", yB == 1)]:
         axes[0].hist(cal_pol[sel], bins=50, alpha=0.5, label=f"calibration-B {lbl}", density=True)
-    axes[0].set_yscale("log"); axes[0].set_xlabel("calibrated probability"); axes[0].set_title("calibration B by class"); axes[0].legend()
+    axes[0].set_yscale("log"); axes[0].set_xlabel("calibrated risk score"); axes[0].set_title("calibration slice B by class"); axes[0].legend()
     frac_pos, mean_pred = calibration_curve(yB, cal_pol, n_bins=10, strategy="quantile")
     axes[1].plot(mean_pred, frac_pos, "o-", label="calibrated")
     axes[1].plot([0, 1], [0, 1], "--", color="gray", label="ideal")
-    axes[1].set_xlabel("mean predicted probability"); axes[1].set_ylabel("fraction positive"); axes[1].legend()
-    axes[1].set_title("reliability curve (calibration half B)")
+    axes[1].set_xlabel("mean calibrated risk score"); axes[1].set_ylabel("fraction positive in corpus"); axes[1].legend()
+    axes[1].set_title("corpus calibration curve (not deployment prevalence)")
     Path("results").mkdir(exist_ok=True)
     fig.tight_layout(); fig.savefig("results/calibration_diagnostics.png", dpi=120)
     # per-source histograms (json-serial binned); calibrated scores for the FULL slice
@@ -294,7 +310,8 @@ def main():
               "lgbm": lgbm_final, "lr": lr_final, "tfidf": tfidf,
               "w_text": w_text, "calibration": {"a": a, "b": b},
               "thresholds": thresholds,
-              "version": "3.0.0", "feature_names": feature_names()}
+              "version": "3.1.0", "feature_names": feature_names(),
+              "score_type": "calibrated lexical risk score (not a real-world probability)"}
     joblib.dump(bundle, "results/model_bundle.joblib", compress=3)
 
     metrics = {"protocol": "StratifiedGroupKFold(5, seed 42, by registrable domain) on train_dev; "

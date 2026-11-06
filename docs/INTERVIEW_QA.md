@@ -7,14 +7,14 @@
 5. **How is the holdout used?** Once, after decisions are frozen.
 6. **Why report recall at fixed FPR?** Operations usually constrain false alarms.
 7. **Why 1%?** Five percent creates too many legitimate interruptions; 5% remains comparison-only.
-8. **What does calibration mean?** A probability should approximate observed frequency.
+8. **What does calibration mean here?** The Platt mapping is checked against this corpus's observed frequencies, but the API calls its output a risk score because corpus prevalence is not deployment prevalence.
 9. **Why no HTML fetching?** It is unsafe and violates the string-only evaluation rule.
 10. **Why lexical features?** They are fast, explainable, and safe for an API.
 11. **What are the limits?** New domains and adversarially crafted URLs can evade lexical rules.
 12. **What is a registrable domain?** The effective second-level domain under the public suffix list.
 13. **Why drop conflicting duplicates?** A contradictory label cannot be resolved without provenance.
 14. **How are thresholds selected?** On validation predictions only.
-15. **Why keep a calibration slice?** It separates probability assessment from threshold selection.
+15. **Why keep a calibration slice?** It separates risk-score mapping from threshold selection; neither step makes the score a real-world probability.
 16. **What is class imbalance handling?** Balanced class weights during logistic fitting.
 17. **What does the API return?** Probability, class, threshold, canonical URL, reasons, and model version.
 18. **Why a guardrail?** Obvious IP, punycode, and brand-impersonation patterns need a transparent safety floor.

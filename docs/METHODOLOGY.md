@@ -1,5 +1,9 @@
 # Methodology
 
-Cleaning keeps only benign/phishing rows, canonicalizes once, drops malformed or conflicting duplicates, and records a stable registrable domain. Development uses a domain-hash split (70/20/10 within the train pool); the serialized holdout is never used for tuning. The model uses lexical URL features computed without fitting. Thresholds are chosen on the validation slice for nominal 0.1%, 1%, and 5% FPR. Evaluation writes JSON before documentation is rendered.
+The pipeline canonicalizes URL strings, removes malformed records and conflicting labels, and assigns all rows for a registrable domain to one split role. The current corpus contains multiple source families; source disagreement and label quality remain limitations.
 
-This local run is intentionally conservative about claims: it has no page content, DNS, WHOIS, reputation, or liveness features and does not request any URL. Cross-source and Tranco evaluation remain required follow-up work because the requested external snapshots were not available in the workspace.
+Training compares grouped out-of-fold LightGBM and character 3–5-gram TF-IDF linear models. It uses a fingerprinted cache keyed to the exact training data, compares blend variants, selects the blend on validation, calibrates on one half of the calibration slice, and selects operating thresholds on the other half. The holdout is not used for model or threshold selection and is evaluated once.
+
+Evaluation and serving both canonicalize first, apply the same model blend and calibration, and compare against the same stored thresholds. The output is called a risk score because the labeled corpus prevalence does not represent deployment prevalence. Calibration diagnostics are descriptive of this dataset only.
+
+The detector uses URL-string features only. It never opens, resolves, or downloads a submitted URL. Independent data with verified labels and greater benign coverage of current platforms is required for stronger real-world claims.

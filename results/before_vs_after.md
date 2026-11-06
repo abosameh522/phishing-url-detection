@@ -5,15 +5,15 @@ no value is hand-written.
 
 | slice | model | rows | recall@1%FPR | ROC-AUC | AP |
 |---|---|---|---|---|---|
-| eval_sealed | v1 (refit, same train pool) | 263221 | 0.6765465447637141 | 0.9594228801877105 | 0.9657282239015272 |
-| holdout | v1 (refit, same train pool) | 147561 | 0.5364829102314574 | 0.9363675009883016 | 0.9386413629595455 |
-| eval_tranco | v1 (refit, same train pool) | 9487 | None | nan | 0.0 |
-| validation | v1 (refit, same train pool) | 131135 | 0.6410417776056543 | 0.9669374639986213 | 0.9652493896074698 |
-| eval_sealed | v2 | 263221 | 0.7069 | 0.9627 | 0.9691 |
+| eval_sealed | v1 (refit, same train pool) | 263221 | 0.6831290073616718 | 0.9600816345908226 | 0.9662267693818376 |
+| holdout | v1 (refit, same train pool) | 154963 | 0.5436426020977461 | 0.9401794456316261 | 0.9380218298315839 |
+| eval_tranco | v1 (refit, same train pool) | 2766 | None | nan | 0.0 |
+| validation | v1 (refit, same train pool) | 135148 | 0.6370080389219145 | 0.9671292575356533 | 0.9638812523652126 |
+| eval_sealed | v2 | 263221 | 0.7064 | 0.9613 | 0.9682 |
 | eval_fresh | v2 | 766316 | 0 | 0 | 0 |
-| eval_tranco | v2 | 9487 | 0 | 0 | 0 |
-| holdout | v2 | 147561 | 0.5622 | 0.9458 | 0.9474 |
+| eval_tranco | v2 | 2766 | 0 | 0 | 0 |
+| holdout | v2 | 154963 | 0.569 | 0.9454 | 0.9436 |
 
 ## hard sanity fixtures
-overall accuracy 0.785;
-legitimate 0.995 / phishing 0.418 at threshold 0.9366320303489568.
+overall accuracy 0.825;
+legitimate 0.958 / phishing 0.591 at threshold 0.9345851895566264.

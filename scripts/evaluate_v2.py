@@ -37,7 +37,9 @@ def score_batch(b, urls):
     (canonical -> featurize -> blend -> Platt). v2.0 evaluation applied bundle thresholds
     to raw blend scores, which is a different operating point (results/serve_eval_parity.json
     proves the skew: same URL, API phishing vs eval legitimate)."""
-    X = featurize(list(urls))
+    # Match the serving path exactly: canonicalization precedes both feature paths.
+    urls = [canonicalize(u) for u in urls]
+    X = featurize(urls)
     p_lgbm = b["lgbm"].predict_proba(X)[:, 1]
     p_lin = b["lr"].predict_proba(b["tfidf"].transform([u.lower() for u in urls]))[:, 1]
     w = float(b.get("w_text", 0.5))
@@ -144,6 +146,7 @@ def per_source_metrics(df, thr):
 
 def main():
     b = load_bundle()
+    bundle_sha256 = hashlib.sha256(Path("results/model_bundle.joblib").read_bytes()).hexdigest()
     D = pd.read_parquet("data/processed/urls_unified.parquet")
     commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
     thresholds = b.get("thresholds", {})
@@ -156,9 +159,11 @@ def main():
         if len(sub) == 0:
             continue
         t0 = time.time()
-        fp = hashlib.sha256(json.dumps({k: str(b.get(k)) for k in
-                                        ["thresholds", "w_text", "calibration", "version"]}
-                                       + ["__calibrated_scores_v2__"]).encode()).hexdigest()[:16]
+        score_fingerprint = {k: str(b.get(k)) for k in
+                             ["thresholds", "w_text", "calibration", "version"]}
+        score_fingerprint["score_path"] = "canonicalized_calibrated_v3"
+        score_fingerprint["bundle_sha256"] = bundle_sha256
+        fp = hashlib.sha256(json.dumps(score_fingerprint, sort_keys=True).encode()).hexdigest()[:16]
         cache_p = Path(f"results/slice_{s}_probs_{fp}.npy")
         if cache_p.exists():
             p = np.load(cache_p)
@@ -177,12 +182,17 @@ def main():
     # ---- holdout: touched exactly once -----------------------------------
     if Path("results/final_holdout.json").exists():
         print("holdout already evaluated once; not re-touched", flush=True)
+        prior_holdout = json.loads(Path("results/final_holdout.json").read_text())
+        if prior_holdout.get("evaluated_once"):
+            eval_slices["holdout"] = prior_holdout.get("metrics", {})
     else:
         h = D[D.split_role == "holdout"].copy()
         t0 = time.time()
-        fp = hashlib.sha256(json.dumps({k: str(b.get(k)) for k in
-                                        ["thresholds", "w_text", "calibration", "version"]}
-                                       + ["__calibrated_scores_v2__"]).encode()).hexdigest()[:16]
+        score_fingerprint = {k: str(b.get(k)) for k in
+                             ["thresholds", "w_text", "calibration", "version"]}
+        score_fingerprint["score_path"] = "canonicalized_calibrated_v3"
+        score_fingerprint["bundle_sha256"] = bundle_sha256
+        fp = hashlib.sha256(json.dumps(score_fingerprint, sort_keys=True).encode()).hexdigest()[:16]
         cache_p = Path(f"results/slice_holdout_probs_{fp}.npy")
         h["p"] = np.load(cache_p) if cache_p.exists() else score_batch(b, h.url_canonical.tolist())
         if not cache_p.exists():

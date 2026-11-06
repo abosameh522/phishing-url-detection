@@ -1,20 +1,32 @@
 {
+  "commoncrawl": {
+    "n_rows": 59,
+    "n_phish": 0,
+    "recall@1%FPR": null,
+    "recall@0.1%FPR": null
+  },
   "kaggle_like": {
-    "n_rows": 187543,
-    "n_phish": 36488,
-    "recall@1%FPR": 0.1080081122560842,
-    "recall@0.1%FPR": 0.05251041438281079
+    "n_rows": 198325,
+    "n_phish": 38159,
+    "recall@1%FPR": 0.11239812364055662,
+    "recall@0.1%FPR": 0.049844073482009484
   },
   "mendeley_academic": {
-    "n_rows": 265151,
-    "n_phish": 184220,
-    "recall@1%FPR": 0.2815166648572359,
-    "recall@0.1%FPR": 0.13925198132667463
+    "n_rows": 274878,
+    "n_phish": 186043,
+    "recall@1%FPR": 0.2843159914643389,
+    "recall@0.1%FPR": 0.14113403890498433
   },
   "phreshphish": {
-    "n_rows": 128078,
-    "n_phish": 68492,
-    "recall@1%FPR": 0.4380219587689073,
-    "recall@0.1%FPR": 0.23491794662150325
+    "n_rows": 130583,
+    "n_phish": 69430,
+    "recall@1%FPR": 0.44662249747947574,
+    "recall@0.1%FPR": 0.23776465504825003
+  },
+  "tranco": {
+    "n_rows": 526,
+    "n_phish": 0,
+    "recall@1%FPR": null,
+    "recall@0.1%FPR": null
   }
 }

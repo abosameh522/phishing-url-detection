@@ -1,23 +1,24 @@
 # Data Card — `data/processed/urls_unified.parquet`
 
-**Generated:** from `data/processed/manifest.json` (created_at 2026-11-05T03:13:07.271485+00:00) by
+**Generated:** from `data/processed/manifest.json` (created_at 2026-11-05T16:34:43.510783+00:00) by
 `scripts/render_data_docs.py`. No count on this page is hand-typed.
 
-- Total rows: **2,013,066** (630,796 benign / 1,382,270 phishing)
-- Registrable domains: **918,237**
+- Total rows: **2,044,164** (656,858 benign / 1,387,306 phishing)
+- Registrable domains: **918,238**
 - Conflicting-label URLs removed: **5,461**
-- Training rows removed to keep evaluation domains out of the train pool: **595,346**
+- Training rows removed to keep evaluation domains out of the train pool: **566,102**
 
 ## Per-source, per-class counts (rows kept)
 
 ```text
 label              benign  phishing
 family                             
+commoncrawl           174         0
 fresh_phishing          0    766316
-kaggle_like        254169     60422
-mendeley_academic  176529    367462
-phreshphish        190611    188070
-tranco               9487         0
+kaggle_like        270416     62413
+mendeley_academic  189589    369537
+phreshphish        193000    189040
+tranco               3679         0
 ```
 
 ## Split roles (by registrable domain; zero train/eval overlap asserted)
@@ -25,13 +26,13 @@ tranco               9487         0
 ```text
 label        benign  phishing   total
 split_role                           
-calibration   55960     58614  114574
+calibration   58542     58837  117379
 eval_fresh        0    766316  766316
 eval_sealed  128469    134752  263221
-eval_tranco    9487         0    9487
-holdout       76144     71417  147561
-train_dev    291572    289200  580772
-validation    69164     61971  131135
+eval_tranco    2766         0    2766
+holdout       83267     71696  154963
+train_dev    310739    293632  604371
+validation    73075     62073  135148
 ```
 
 ## Label normalization
